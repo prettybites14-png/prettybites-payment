@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin - Pretty Bites</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+<script src="../assets/config.js"></script>
+</head>
+<body>
+  <a class="backBtn" id="backBtn" href="#" onclick="history.length>1?history.back():location.href='../index.html';return false;">رجوع</a>
+  <div class="topbar">
+    <a class="brand" href="../index.html">الرئيسية</a>
+    <div class="actions">
+      <a class="btn" href="dashboard.html">لوحة الأدمن</a>
+    </div>
+  </div>
+
+  <main class="container" style="display:grid;place-items:center;min-height:70vh">
+    <div class="formCard" style="width:min(420px,100%)">
+      <div style="font-weight:1000;font-size:20px;margin-bottom:10px">دخول الأدمن</div>
+      <label class="lbl">الرقم السري</label>
+      <input class="inp" id="pw" inputmode="numeric" />
+      <button class="btn btnPrimary" id="go" style="width:100%;margin-top:12px;padding:12px 14px;border-radius:16px">دخول</button>
+      <div style="text-align:center;margin-top:10px;opacity:.85;font-weight:800">
+        مرحباً بك في لوحة إدارة Pretty Bites
+      </div>
+    </div>
+  </main>
+
+  <script src="../assets/app.js"></script>
+  <script>
+    ensureData(); applyTheme();
+    if(adminIsOk()) nav("dashboard.html");
+    document.getElementById("go").onclick = ()=>{
+      const ok = adminLogin(document.getElementById("pw").value.trim());
+      if(ok) nav("dashboard.html");
+      else alert("رقم سري خطأ");
+    };
+  </script>
+
+<script>
+(function(){
+  const btn = document.getElementById('backBtn');
+  if(!btn) return;
+
+  const path = (location.pathname || '').toLowerCase();
+  const isHome = path.endsWith('/index.html') || path === '/' || path === '' || path.endsWith('/');
+  if(isHome) btn.style.display = 'none';
+})();
+</script>
+
+</body>
+</html>

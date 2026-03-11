@@ -1,0 +1,7 @@
+{
+  "name": "pretty-bites-stripe-unified",
+  "private": true,
+  "dependencies": {
+    "stripe": "^18.3.0"
+  }
+}

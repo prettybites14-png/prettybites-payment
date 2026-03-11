@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>المنتجات - Pretty Bites</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+<script src="../assets/config.js"></script>
+</head>
+<body>
+  <a class="backBtn" id="backBtn" href="#" onclick="history.length>1?history.back():location.href='../index.html';return false;">رجوع</a>
+  <div class="topbar">
+    <a class="brand" href="dashboard.html">رجوع</a>
+  </div>
+
+  <main class="container">
+    <div class="sectionTitle">المنتجات</div>
+
+    <div class="formCard">
+      <div style="font-weight:1000;margin-bottom:10px">إضافة منتج</div>
+
+      <label class="lbl">القسم</label>
+      <select class="inp" id="slug"></select>
+
+      <label class="lbl">اسم المنتج</label>
+      <input class="inp" id="name" />
+
+      <label class="lbl">السعر</label>
+      <input class="inp" id="price" inputmode="decimal" value="0" />
+
+      <label class="lbl">وصف المنتج</label>
+      <textarea class="inp" id="desc" rows="3" placeholder="وصف يظهر للزبائن"></textarea>
+
+      <label class="lbl">صورة المنتج</label>
+      <input class="inp" id="image" placeholder="رابط (اختياري) https://..." />
+      <input class="inp" id="imageFile" type="file" accept="image/*" />
+      <div class="hint" style="opacity:.8;margin-top:6px">تقدر تحط رابط، أو تختار صورة من جهازك (تنحفظ على Supabase Storage وتكون عالمية).</div>
+      <div id="imgPrevWrap" style="margin-top:10px;display:none">
+        <img id="imgPrev" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:16px;border:1px solid rgba(255,255,255,.12)"/>
+      </div>
+
+      <button class="btn btnPrimary" id="add" style="width:100%;margin-top:14px;padding:12px 14px;border-radius:16px">إضافة</button>
+    </div>
+
+    <input id="editImageFile" type="file" accept="image/*" style="display:none" />
+
+    <div style="margin-top:14px;font-weight:1000">قائمة المنتجات</div>
+    <div id="list" style="display:grid;gap:10px;margin-top:10px"></div>
+  </main>
+
+  <script src="../assets/app.js"></script>
+  <script>
+    ensureData(); applyTheme();
+    if(!adminIsOk()) nav("login.html");
+    pbSyncCatalogFromSupabase().then(()=>{ fillCats(); render(); applyTheme(); }).catch(()=>{});
+    window.pbRealtimeRefresh = ()=>{ fillCats(); render(); applyTheme(); };
+    pbEnableRealtime(window.pbRealtimeRefresh);
+
+    function fillCats(){
+      const sel = document.getElementById("slug");
+      const cards = getCards().sort((a,b)=>(a.sort||0)-(b.sort||0));
+      sel.innerHTML = cards.map(c=>`<option value="${c.slug}">${escapeHtml(c.title)} (${escapeHtml(c.slug)})</option>`).join("");
+    }
+
+    function render(){
+      const list = document.getElementById("list");
+      const products = getProducts().slice().reverse();
+      const cards = getCards();
+      const titleBySlug = Object.fromEntries(cards.map(c=>[c.slug,c.title]));
+      list.innerHTML = products.map(p=>`
+        <div class="formCard" style="display:flex;gap:12px;align-items:center">
+          <div style="width:62px;height:62px;border-radius:16px;overflow:hidden;background:rgba(255,255,255,.06)">
+            ${p.image ? `<img src="${p.image}" style="width:100%;height:100%;object-fit:cover">`:""}
+          </div>
+          <div style="flex:1">
+            <div style="font-weight:1000">${escapeHtml(p.name)}</div>
+            <div style="opacity:.8;font-weight:800">
+              ${money(p.price)} • قسم: ${escapeHtml(titleBySlug[p.slug]||p.slug)} •
+              ${p.enabled ? "ظاهر":"مخفي"} • ${p.available ? "متوفر":"غير متوفر"}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" onclick="editProd('${p.id}')">تعديل</button>
+          <button class="btn" onclick="changeProdImage('${p.id}')">تغيير الصورة</button>
+            <button class="btn" onclick="toggle('${p.id}','enabled')">${p.enabled ? "إخفاء":"إظهار"}</button>
+            <button class="btn" onclick="toggle('${p.id}','available')">${p.available ? "غير متوفر":"متوفر"}</button>
+            <button class="btn" style="border-color:rgba(255,80,120,.4)" onclick="delProd('${p.id}')">حذف</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    document.getElementById("add").onclick = ()=>{
+      const slug = (document.getElementById("slug").value || "").trim();
+      const name = document.getElementById("name").value.trim();
+      const price = Number(document.getElementById("price").value);
+      const image = document.getElementById("image").value.trim();
+      if(!name) return alert("اكتب اسم المنتج");
+      if(!Number.isFinite(price)) return alert("السعر غير صحيح");
+      const products = getProducts();
+      products.push({ id: uid(), slug, name, price, image, enabled:true, available:true });
+      setProducts(products);
+      document.getElementById("name").value="";
+      document.getElementById("price").value="0";
+      document.getElementById("image").value="";
+      render();
+      alert("تمت إضافة المنتج ✅");
+    };
+
+    window.toggle = (id, key)=>{
+      const products = getProducts();
+      const p = products.find(x=>x.id===id);
+      if(!p) return;
+      p[key] = !p[key];
+      setProducts(products);
+      render();
+    };
+
+    window.editProd = (id)=>{
+      const products = getProducts();
+      const p = products.find(x=>x.id===id);
+      if(!p) return;
+      const newName = prompt("اسم جديد:", p.name);
+      if(newName===null) return;
+      const newPrice = prompt("سعر جديد:", String(p.price));
+      if(newPrice===null) return;
+      const newImg = prompt("رابط صورة جديد:", p.image || "");
+      if(newImg===null) return;
+      const pr = Number(newPrice);
+      if(!Number.isFinite(pr)) return alert("السعر غير صحيح");
+      p.name = newName.trim();
+      p.price = pr;
+      p.image = newImg.trim();
+      setProducts(products);
+      render();
+    };
+
+    window.delProd = (id)=>{
+      if(!confirm("حذف المنتج؟")) return;
+      const products = getProducts().filter(x=>x.id!==id);
+      setProducts(products);
+      render();
+    };
+
+    function escapeHtml(str){
+      return String(str||"").replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
+    }
+
+    
+    function previewLocalImage(file, imgEl, wrapEl){
+      if(!file || !imgEl || !wrapEl){
+        if(wrapEl) wrapEl.style.display = "none";
+        return;
+      }
+      const localUrl = URL.createObjectURL(file);
+      imgEl.src = localUrl;
+      wrapEl.style.display = "block";
+      imgEl.onload = ()=> URL.revokeObjectURL(localUrl);
+    }
+
+    const imgPrevWrap = document.getElementById("imgPrevWrap");
+    const imgPrev = document.getElementById("imgPrev");
+    const imgFile = document.getElementById("imageFile");
+    if(imgFile){
+      imgFile.addEventListener("change", async ()=>{
+        const f = imgFile.files && imgFile.files[0];
+        if(!f){ imgPrevWrap.style.display="none"; return; }
+        previewLocalImage(f, imgPrev, imgPrevWrap);
+      });
+    }
+
+    // Override add button to support file upload
+    document.getElementById("add").onclick = async ()=>{
+      const slug = (document.getElementById("slug").value || "").trim();
+      const name = document.getElementById("name").value.trim();
+      const price = Number(document.getElementById("price").value);
+      let image = document.getElementById("image").value.trim();
+
+      const f = imgFile && imgFile.files && imgFile.files[0];
+      if(f){
+        try{
+          image = await pbUploadImageToSupabase(f, 'products');
+        }catch(err){
+          console.error(err);
+          return alert(err.message || 'فشل رفع الصورة');
+        }
+      }
+
+      if(!slug) return alert("اختر القسم");
+      if(!name) return alert("اكتب اسم المنتج");
+      if(!Number.isFinite(price)) return alert("السعر غير صحيح");
+
+      const products = getProducts();
+      const desc=document.getElementById("desc").value.trim();
+      products.unshift({ id: uid(), slug, name, price, desc, image, enabled:true, available:true });
+      setProducts(products);
+
+      document.getElementById("name").value="";
+      document.getElementById("price").value="0";
+      document.getElementById("image").value="";
+      if(imgFile) imgFile.value="";
+      imgPrevWrap.style.display="none";
+
+      render();
+      toast("تمت الإضافة ✅");
+    };
+
+    
+    // تغيير صورة المنتج بسهولة
+    const editFile = document.getElementById("editImageFile");
+    let editTargetId = null;
+    window.changeProdImage = (id)=>{
+      editTargetId = id;
+      if(editFile) editFile.click();
+    };
+    if(editFile){
+      editFile.addEventListener("change", async ()=>{
+        const f = editFile.files && editFile.files[0];
+        if(!f || !editTargetId) return;
+        let url = '';
+        try{
+          url = await pbUploadImageToSupabase(f, 'products');
+        }catch(err){
+          console.error(err);
+          alert(err.message || 'فشل رفع الصورة');
+          editFile.value="";
+          editTargetId = null;
+          return;
+        }
+        const products = getProducts();
+        const p = products.find(x=>x.id===editTargetId);
+        if(p){
+          p.image = url;
+          setProducts(products);
+          render();
+          toast("تم تحديث الصورة ✅");
+        }
+        editFile.value="";
+        editTargetId = null;
+      });
+    }
+
+    fillCats();
+
+
+    render();
+  </script>
+
+<script>
+(function(){
+  const btn = document.getElementById('backBtn');
+  if(!btn) return;
+
+  const path = (location.pathname || '').toLowerCase();
+  const isHome = path.endsWith('/index.html') || path === '/' || path === '' || path.endsWith('/');
+  if(isHome) btn.style.display = 'none';
+})();
+</script>
+
+</body>
+</html>

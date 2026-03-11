@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>الإعدادات - Pretty Bites</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+<script src="../assets/config.js"></script>
+</head>
+<body>
+  <a class="backBtn" id="backBtn" href="#" onclick="history.length>1?history.back():location.href='../index.html';return false;">رجوع</a>
+  <div class="topbar">
+    <a class="brand" href="dashboard.html">رجوع</a>
+  </div>
+
+  <main class="container">
+    <div class="sectionTitle">الإعدادات</div>
+
+    <div class="formCard">
+      <label class="lbl">اسم الموقع</label>
+      <input class="inp" id="storeName" />
+
+      <label class="lbl">صورة الهيرو (الصفحة الرئيسية)</label>
+      <input class="inp" id="heroImage" placeholder="رابط (اختياري) https://..." />
+      <input class="inp" id="heroFile" type="file" accept="image/*" />
+      <div class="hint" style="opacity:.8;margin-top:6px">تقدر تختار صورة من جهازك بدل الرابط.</div>
+      <div id="heroPrevWrap" style="margin-top:10px;display:none">
+        <img id="heroPrev" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:16px;border:1px solid rgba(255,255,255,.12)"/>
+      </div>
+
+      <label class="lbl">رقم واتساب المطعم (بدون +)</label>
+      <input class="inp" id="whatsapp" inputmode="numeric" placeholder="مثال: 12263453432" />
+
+      
+      <label class="lbl">رسوم التوصيل ($)</label>
+      <input class="inp" id="deliveryFee" type="number" step="0.01" placeholder="مثال: 5" />
+      <div class="hint" style="opacity:.8;margin-top:6px">يمكنك تغييرها من هنا، وستطبق على الإجمالي والفاتورة تلقائياً.</div>
+
+      <label class="lbl">كلمة سر الأدمن</label>
+      <input class="inp" id="adminPassword" inputmode="numeric" placeholder="افتراضي: 2323" />
+      <div class="hint" style="opacity:.8;margin-top:6px">غيّرها إذا حبيت. إذا تركتها فاضية رح تبقى 2323.</div>
+
+
+      <div style="margin-top:12px;font-weight:1000">ألوان الموقع</div>
+
+      <label class="lbl">لون خلفية الصفحات</label>
+      <input class="inp" id="pageBg" type="color" value="#0b0f1a" /><div class="hint">اختر لون أو اكتب HEX</div><input class="inp" id="pageBgHex" placeholder="#0b0f1a" />
+
+      <label class="lbl">طبقة تغميق فوق صور الكروت</label>
+      <input class="inp" id="overlay" placeholder="rgba(0,0,0,.25)" />
+
+      <div style="margin-top:10px;font-weight:1000">ألوان كتابة الكروت (تدرج)</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
+        <input class="inp" id="g1" type="color" value="#ff3d8d" />
+        <input class="inp" id="g2" type="color" value="#ffb703" />
+        <input class="inp" id="g3" type="color" value="#00d4ff" />
+      </div>
+      <label class="lbl" style="margin-top:10px">لون النص</label>
+      <input class="inp" id="textColor" type="color" value="#ffffff" />
+      <label class="lbl" style="margin-top:10px">حواف البطاقات (Radius)</label>
+      <input class="inp" id="radius" type="number" min="0" max="40" step="1" placeholder="18" />
+
+
+      <label class="lbl">حجم الخط الأساسي</label>
+      <input class="inp" id="fs" inputmode="numeric" placeholder="مثال: 16" />
+
+      <button class="btn btnPrimary" id="save" style="width:100%;margin-top:14px;padding:12px 14px;border-radius:16px">حفظ</button>
+    </div>
+  </main>
+
+  <script src="../assets/app.js"></script>
+  <script>
+    ensureData();
+    pbSyncCatalogFromSupabase().catch(()=>{});
+
+    async function heroFileToDataUrl(file){
+      return new Promise((resolve,reject)=>{
+        const r = new FileReader();
+        r.onload = ()=>resolve(String(r.result||""));
+        r.onerror = ()=>reject(r.error||new Error("read error"));
+        r.readAsDataURL(file);
+      });
+    }
+    const heroPrevWrap = document.getElementById("heroPrevWrap");
+    const heroPrev = document.getElementById("heroPrev");
+    const heroFile = document.getElementById("heroFile");
+    if(heroFile){
+      heroFile.addEventListener("change", async ()=>{
+        const f = heroFile.files && heroFile.files[0];
+        if(!f){ heroPrevWrap.style.display="none"; return; }
+        const url = await heroFileToDataUrl(f);
+        heroPrev.src = url;
+        heroPrevWrap.style.display="block";
+      });
+    }
+ 
+    if(!adminIsOk()) nav("login.html");
+
+    const s = getSettings();
+    document.getElementById("storeName").value = s.storeName || "";
+    document.getElementById("heroImage").value = s.heroImage || "";
+    // show preview if data-url
+    if((s.heroImage||"").startsWith("data:image")){
+      if(heroPrev){ heroPrev.src = s.heroImage; }
+      if(heroPrevWrap) heroPrevWrap.style.display="block";
+    }
+    const heroImgLoaded = true;
+    document.getElementById("whatsapp").value = String(s.whatsappPhone||"").replace(/\D/g,"");
+    document.getElementById("pageBg").value = s.theme?.pageBg || "#0b0f1a";
+    document.getElementById("overlay").value = s.theme?.cardOverlay || "rgba(0,0,0,.25)";
+    document.getElementById("g1").value = (s.theme?.gradientText||[])[0] || "#ff3d8d";
+    document.getElementById("g2").value = (s.theme?.gradientText||[])[1] || "#ffb703";
+    document.getElementById("g3").value = (s.theme?.gradientText||[])[2] || "#00d4ff";
+    document.getElementById("fs").value = String(s.theme?.fontSizeBase ?? 16);
+
+    document.getElementById("save").onclick = async ()=>{
+      const next = JSON.parse(JSON.stringify(s));
+      next.storeName = document.getElementById("storeName").value.trim() || "Pretty Bites";
+      let hero = document.getElementById("heroImage").value.trim();
+      // if file selected, use it
+      const hf = document.getElementById("heroFile");
+      if(hf && hf.files && hf.files[0]){
+        hero = await pbUploadImageToSupabase(hf.files[0], 'settings');
+      }
+      next.heroImage = hero;
+      next.whatsappPhone = String(document.getElementById("whatsapp").value).replace(/\D/g,"") || "12263453432";
+      const df = Number(document.getElementById("deliveryFee").value);
+      next.deliveryFee = Number.isFinite(df) ? df : 5;
+      const ap = document.getElementById("adminPassword").value.trim();
+      next.adminPassword = ap || "2323";
+      const ak = (document.getElementById("adminKey")?.value || "").trim();
+      next.adminKey = ak || "PB-ADMIN-2323";
+      next.theme = next.theme || {};
+      next.theme.pageBg = (document.getElementById("pageBgHex").value.trim() || document.getElementById("pageBg").value.trim() || "#0b0f1a");
+next.theme.textColor = document.getElementById("textColor").value.trim() || "#ffffff";
+const rr = Number(document.getElementById("radius").value);
+next.theme.radius = Number.isFinite(rr) ? rr : 18;
+      next.theme.cardOverlay = document.getElementById("overlay").value.trim() || "rgba(0,0,0,.25)";
+      next.theme.gradientText = [
+        document.getElementById("g1").value.trim() || "#ff3d8d",
+        document.getElementById("g2").value.trim() || "#ffb703",
+        document.getElementById("g3").value.trim() || "#00d4ff"
+      ];
+      const fs = Number(document.getElementById("fs").value);
+      next.theme.fontSizeBase = Number.isFinite(fs) ? fs : 16;
+
+      setSettings(next);
+      applyTheme();
+      alert("تم الحفظ ✅");
+    };
+
+    applyTheme();
+  </script>
+
+<script>
+(function(){
+  const btn = document.getElementById('backBtn');
+  if(!btn) return;
+
+  const path = (location.pathname || '').toLowerCase();
+  const isHome = path.endsWith('/index.html') || path === '/' || path === '' || path.endsWith('/');
+  if(isHome) btn.style.display = 'none';
+})();
+</script>
+
+</body>
+</html>

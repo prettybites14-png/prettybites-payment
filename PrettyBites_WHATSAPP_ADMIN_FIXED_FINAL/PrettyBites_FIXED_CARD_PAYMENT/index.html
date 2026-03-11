@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><title>Pretty Bites</title><link rel="stylesheet" href="assets/style.css" /><script src="assets/config.js"></script></head>
+<body>
+<a class="backBtn" id="backBtn" href="#" onclick="history.length>1?history.back():location.href='index.html';return false;">Back</a>
+<div class="topbar"><a class="brand" href="index.html" data-store-name>Pretty Bites</a><div class="actions navRow"><a class="btn" href="weekly-meals.html">Weekly Meal Plan</a><a class="btn" href="#" id="openCart">🛒 <span data-cart-badge>0</span></a></div></div>
+<main class="container">
+<section class="hero" id="hero"><a class="adminHomeBtn" href="admin/login.html">Admin</a><img id="heroImg" alt="Pretty Bites cover"><div class="heroOverlay"></div><div class="heroTitle" data-store-name>Pretty Bites</div></section>
+<section class="weeklyHero weeklyHeroPremium weeklyHeroSingle">
+  <div class="weeklyBanner premiumBanner">
+    <img id="weeklyImage" alt="Weekly meal plan">
+    <div class="overlay"></div>
+    <div class="weeklyGlow"></div>
+    <div class="content premiumContent">
+      <div class="eyebrow">Weekly subscription for Canadian customers</div>
+      <h2 id="weeklyTitle" class="premiumTitle" style="margin:6px 0 8px;font-size:36px">Weekly Meal Plan</h2>
+      <div id="weeklySubtitle" class="premiumSubtitle" style="font-weight:900">5 Meals Per Week</div>
+      <p class="premiumDesc">Fresh meals from Monday to Friday with easy pickup or delivery. Perfect for busy families and professionals.</p>
+      <div class="weeklyPills premiumPills">
+        <span class="infoPill" id="weeklyPrice">$65.00 CAD</span>
+        <span class="infoPill" id="weeklyDeliveryFee">Delivery +$25.00 / week</span>
+        <span class="infoPill">Mon - Fri</span>
+      </div>
+      <div class="weeklyCtas">
+        <a class="btn btnPrimary weeklyMainBtn" href="weekly-meals.html">View Weekly Menu</a>
+        <a class="btn weeklyAltBtn" href="weekly-meals.html#weekly-order-form">Order Weekly Plan</a>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="homeCategoriesWrap">
+  <div class="sectionTitle">Shop by Category</div>
+  <div class="muted small" style="margin-top:-6px;margin-bottom:12px">Browse your categories and open each one to see its products.</div>
+  <div class="grid2" id="cardsGrid"></div>
+</section>
+
+</main>
+<div class="drawerOverlay" id="drawerOverlay"></div><aside class="drawer" id="drawer"><div style="display:flex;align-items:center;justify-content:space-between"><div style="font-weight:800;font-size:18px">Your Cart</div><button class="xBtn" id="closeCart">×</button></div><div id="cartList" style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px"></div><div class="hr" style="display:flex;justify-content:space-between"><div style="opacity:.85">Subtotal</div><div style="font-weight:900" id="cartSubtotal">$0.00</div></div><a class="btn btnPrimary" href="checkout.html" style="text-align:center">Checkout</a></aside>
+<div class="toast" id="toast"></div>
+<script src="assets/app.js"></script><script>
+ensureData();updateCartBadge();
+function renderHome(){applyTheme();const s=getSettings();const heroImg=document.getElementById("heroImg");heroImg.src=(s.heroImage||"https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=60");heroImg.onerror=()=>heroImg.style.display="none";const weekly=getWeeklyConfig();const weeklySection=document.querySelector('.weeklyHeroPremium');if(weeklySection) weeklySection.style.display=weekly.enabled===false?'none':'';document.getElementById('weeklyTitle').textContent=weekly.title||'Weekly Meal Plan';document.getElementById('weeklySubtitle').textContent=weekly.subtitle||'5 Meals Per Week';document.getElementById('weeklyImage').src=weekly.image||heroImg.src;document.getElementById('weeklyPrice').textContent=money(weekly.packagePrice)+' CAD';document.getElementById('weeklyDeliveryFee').textContent='Delivery +'+money(pbWeeklyDeliveryTotal(weekly))+' / week';const weeklyPreviewDays=document.getElementById('weeklyPreviewDays');if(weeklyPreviewDays){weeklyPreviewDays.innerHTML=(weekly.days||[]).map(d=>`<div class="dayCard"><div class="dayBadge">${escapeHtml(d.label)}</div><div><div class="dayMeal">${escapeHtml(d.meal||'Meal')}</div>${d.desc?`<div class="muted small">${escapeHtml(d.desc)}</div>`:''}</div></div>`).join('');}const grid=document.getElementById("cardsGrid");if(grid){const cards=getCards().filter(c=>c.enabled).sort((a,b)=>(a.sort||0)-(b.sort||0));grid.innerHTML=cards.map(c=>`<a href="category.html?slug=${encodeURIComponent(c.slug)}" style="text-decoration:none"><div class="card cardHover">${c.image?`<img src="${c.image}" alt="">`:""}<div class="cardOverlay"></div><div class="cardTitle">${escapeHtml(c.title)}</div></div></a>`).join("");}}
+renderHome();pbSyncCatalogFromSupabase().then(renderHome).catch(()=>{});window.pbRealtimeRefresh=()=>{renderHome();window.__renderCart&&window.__renderCart();};pbEnableRealtime(window.pbRealtimeRefresh);
+const overlay=document.getElementById("drawerOverlay"),drawer=document.getElementById("drawer");function openDrawer(){overlay.classList.add("open");drawer.classList.add("open");renderCart();}function closeDrawer(){overlay.classList.remove("open");drawer.classList.remove("open");}document.getElementById("openCart").onclick=(e)=>{e.preventDefault();openDrawer();};document.getElementById("closeCart").onclick=closeDrawer;overlay.onclick=closeDrawer;
+function renderCart(){const items=getCart(),list=document.getElementById("cartList");if(!items.length){list.innerHTML=`<div style="opacity:.8">Cart is empty</div>`;}else{list.innerHTML=items.map(it=>`<div class="cartItem"><div class="cartThumb">${it.image?`<img src="${it.image}" alt="">`:""}</div><div style="flex:1"><div style="font-weight:700">${escapeHtml(it.name)}</div><div style="opacity:.85">${money(it.price)}</div><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><button class="btn" style="padding:6px 10px" onclick="decCart('${it.id}'); window.__renderCart && window.__renderCart();">-</button><div style="min-width:18px;text-align:center">${it.qty}</div><button class="btn" style="padding:6px 10px" onclick="incCart('${it.id}'); window.__renderCart && window.__renderCart();">+</button><button class="btn" style="padding:6px 10px;margin-inline-start:auto" onclick="removeCart('${it.id}'); window.__renderCart && window.__renderCart();">Remove</button></div></div></div>`).join("");}document.getElementById("cartSubtotal").textContent=money(cartSubtotal());updateCartBadge();}
+window.__renderCart=renderCart;function escapeHtml(str){return String(str||"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));}
+</script><script>(function(){const btn=document.getElementById('backBtn');if(!btn)return;const path=(location.pathname||'').toLowerCase();const isHome=path.endsWith('/index.html')||path==='/'||path===''||path.endsWith('/');if(isHome)btn.style.display='none';})();</script>
+
+<footer class="siteFooter homeFooterOnly">
+  <div class="container footerSimpleHome">
+    <div class="footerSimpleRow">
+      <span class="footerSimpleBrand">Pretty Bites</span> |
+      <a href="pages/contact.html">Contact</a> |
+      <a href="https://www.instagram.com/prettybitesdelights?igsh=MWp3MWJpMTExaTI1ZA==" target="_blank" rel="noopener">Instagram</a>
+    </div>
+    <div class="footerSimpleRow">
+      <a href="pages/privacy.html">Privacy</a> |
+      <a href="pages/terms.html">Terms</a> |
+            <a href="pages/delivery.html">Delivery</a>
+    </div>
+    <div class="footerCopy">© 2026 Pretty Bites</div>
+  </div>
+</footer>
+
+</body></html>

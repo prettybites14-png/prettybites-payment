@@ -1,0 +1,10 @@
+خطوات التشغيل:
+1) في Netlify > Site configuration > Environment variables أضف:
+   STRIPE_SECRET_KEY
+   STRIPE_PUBLISHABLE_KEY
+2) ارفع هذه النسخة على Netlify.
+3) في Stripe عطّل Link و Klarna واترك Cards فقط.
+4) افتح checkout.html من موقعك وجرب بطاقة اختبار Stripe:
+   4242 4242 4242 4242
+   أي تاريخ مستقبلي + أي CVC
+5) بعد نجاح الدفع سيتم فتح success.html وحفظ الطلب في Supabase.

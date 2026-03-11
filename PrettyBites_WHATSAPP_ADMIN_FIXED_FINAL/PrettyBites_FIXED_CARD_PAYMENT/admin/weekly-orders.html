@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><title>Weekly Orders - Pretty Bites</title><link rel="stylesheet" href="../assets/style.css" /><script src="../assets/config.js"></script></head><body>
+<a class="backBtn" id="backBtn" href="#" onclick="history.length>1?history.back():location.href='dashboard.html';return false;">Back</a>
+<div class="topbar"><a class="brand" href="dashboard.html">Admin Panel</a><div class="actions"><a class="btn" href="weekly-meals.html">Weekly Meal Settings</a></div></div>
+<main class="container">
+  <div class="sectionTitle">Weekly Orders</div>
+  <div class="formCard" style="margin-bottom:12px">This page is separate from the regular kitchen screen. Weekly meal plan orders appear here only.</div>
+  <div class="formGrid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:12px">
+    <div class="formCard"><div class="small muted">New Orders</div><div id="newOrdersCount" style="font-size:28px;font-weight:800">0</div></div>
+    <div class="formCard"><div class="small muted">Last Check</div><div id="lastCheckText" style="font-size:16px;font-weight:700">--</div></div>
+    <div class="formCard"><div class="small muted">Alerts</div><label style="display:flex;align-items:center;gap:8px;font-weight:700"><input type="checkbox" id="soundToggle" checked> Bell + voice on new order</label></div>
+  </div>
+  <div class="pageCard tableWrap"><table class="simpleTable"><thead><tr><th>Customer</th><th>Type</th><th>Time</th><th>Total</th><th>Notes</th><th>Status</th><th>Delete</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
+</main>
+<div class="toast" id="toast"></div>
+<script src="../assets/app.js"></script>
+<script>
+ensureData();applyTheme();if(!adminIsOk())nav('login.html');
+const ALERT_KEY='pb_weekly_alert_seen_v1';
+let lastSeenTs=localStorage.getItem(ALERT_KEY)||'';
+function escapeHtml(str){return String(str||'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));}
+function normCreated(r){ return r.created_at || (r.data&&r.data.createdAt) || ''; }
+function updateCounters(rows){
+  const newCount=(rows||[]).filter(r=>String(r.status||'new').toLowerCase()==='new').length;
+  const el=document.getElementById('newOrdersCount'); if(el) el.textContent=String(newCount);
+  const t=document.getElementById('lastCheckText'); if(t) t.textContent=new Date().toLocaleTimeString();
+}
+async function render(){
+  const rows=await pbFetchWeeklyOrders();
+  updateCounters(rows);
+  ordersBody.innerHTML=(rows||[]).map(r=>{const data=r.data||r;const created=(normCreated(r)||'').replace('T',' ').slice(0,16);return `<tr><td><b>${escapeHtml(r.customer_name||data.customerName||'')}</b><div class="small muted">${escapeHtml(r.customer_phone||data.customerPhone||'')}</div><div class="small muted">${escapeHtml(r.address||data.address||'')}</div></td><td>${escapeHtml(r.delivery_type||data.deliveryType||'')}</td><td><div>${escapeHtml(r.delivery_time||data.deliveryTime||'-')}</div><div class="small muted">${escapeHtml(created)}</div></td><td>${money(r.total||data.total||0)}</td><td>${escapeHtml(r.notes||data.notes||'-')}</td><td><select class="statusSel" onchange="changeStatus('${r.id||data.id}', this.value)">${['new','confirmed','preparing','completed','cancelled'].map(s=>`<option value="${s}" ${(r.status||data.status||'new')===s?'selected':''}>${s}</option>`).join('')}</select></td><td><button class="btn" onclick="deleteWeeklyOrder('${r.id||data.id}')">Delete</button></td></tr>`;}).join('');
+  if(!(rows||[]).length)ordersBody.innerHTML='<tr><td colspan="7">No weekly orders yet.</td></tr>';
+  checkForNew(rows||[]);
+}
+function checkForNew(rows){
+  const latest=(rows||[]).slice().sort((a,b)=> String(normCreated(b)).localeCompare(String(normCreated(a))))[0];
+  if(!latest) return;
+  const latestTs=normCreated(latest) || latest.id || '';
+  if(!lastSeenTs){ lastSeenTs=latestTs; localStorage.setItem(ALERT_KEY,lastSeenTs); return; }
+  if(String(latestTs)>String(lastSeenTs)){
+    lastSeenTs=latestTs; localStorage.setItem(ALERT_KEY,lastSeenTs);
+    if(document.getElementById('soundToggle')?.checked){ try{ ring(); }catch(e){} }
+    toast('New weekly order received');
+  }
+}
+window.changeStatus=async(id,st)=>{await pbUpdateWeeklyOrderStatus(id,st);toast('Status updated');render();};
+window.deleteWeeklyOrder=async(id)=>{if(!confirm('Delete this weekly order?')) return; await pbDeleteWeeklyOrder(id); toast('Weekly order deleted'); render();};
+render();setInterval(render,5000);
+</script></body></html>

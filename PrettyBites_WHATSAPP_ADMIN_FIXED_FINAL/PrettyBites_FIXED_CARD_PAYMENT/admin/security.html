@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>تغيير الباسورد - Pretty Bites</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+<script src="../assets/config.js"></script>
+</head>
+<body>
+  <a class="backBtn" id="backBtn" href="#" onclick="history.length>1?history.back():location.href='../index.html';return false;">رجوع</a>
+  <div class="topbar">
+    <a class="brand" href="dashboard.html">رجوع</a>
+  </div>
+
+  <main class="container">
+    <div class="sectionTitle">تغيير الباسورد</div>
+
+    <div class="formCard" style="max-width:520px">
+      <label class="lbl">الباسورد الحالي</label>
+      <input class="inp" id="current" />
+
+      <label class="lbl">الباسورد الجديد</label>
+      <input class="inp" id="next" />
+
+      <button class="btn btnPrimary" id="save" style="width:100%;margin-top:12px;padding:12px 14px;border-radius:16px">حفظ</button>
+    </div>
+  </main>
+
+  <script src="../assets/app.js"></script>
+  <script>
+    ensureData(); applyTheme();
+    if(!adminIsOk()) nav("login.html");
+
+    document.getElementById("save").onclick = ()=>{
+      const s = getSettings();
+      const cur = document.getElementById("current").value.trim();
+      const nxt = document.getElementById("next").value.trim();
+      if(cur !== (s.adminPassword||"2323")) return alert("الباسورد الحالي خطأ");
+      if(!nxt) return alert("اكتب باسورد جديد");
+      s.adminPassword = nxt;
+      setSettings(s);
+      alert("تم تغيير الباسورد ✅");
+      document.getElementById("current").value="";
+      document.getElementById("next").value="";
+    };
+  </script>
+
+<script>
+(function(){
+  const btn = document.getElementById('backBtn');
+  if(!btn) return;
+
+  const path = (location.pathname || '').toLowerCase();
+  const isHome = path.endsWith('/index.html') || path === '/' || path === '' || path.endsWith('/');
+  if(isHome) btn.style.display = 'none';
+})();
+</script>
+
+</body>
+</html>
