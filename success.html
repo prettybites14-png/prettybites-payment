@@ -51,11 +51,13 @@
           deliveryDays: Number(md.delivery_days || 5),
           total: Number(md.total || 0),
           planTitle: md.plan_title || 'Weekly Meal Plan',
-          items: items
+          items: items,
+          paymentVerifiedAt: new Date().toISOString()
         };
         await pbPushWeeklyOrder(order);
         return order;
       }
+
       const payload = {
         customerName: md.customer_name || (session.customer_details && session.customer_details.name) || '',
         customerPhone: md.customer_phone || '',
@@ -69,9 +71,20 @@
         deliveryFee: Number(md.delivery_fee || 0),
         total: Number(md.total || 0)
       };
+
       const order = createOrder(payload);
       order.id = session.id;
       order.status = 'paid';
+      order.paymentVerifiedAt = new Date().toISOString();
+
+      try{
+        const localOrders = getOrders();
+        const idx = localOrders.findIndex(x => x.orderNo === order.orderNo || x.id === order.id);
+        if(idx >= 0) localOrders[idx] = order;
+        else localOrders.unshift(order);
+        setOrders(localOrders);
+      }catch(e){ console.warn('Local order save warning:', e); }
+
       const row = {
         id: order.id,
         status: 'paid',
@@ -84,15 +97,21 @@
         admin_key: String(window.PB_ADMIN_KEY || getSettings().adminKey || 'PB-ADMIN-2323'),
         data: order
       };
+
       try{
         const headers = {
           'apikey': window.SUPABASE_ANON_KEY,
           'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
           'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates,return=representation'
+          'Prefer': 'resolution=merge-duplicates,return=representation',
+          'x-admin-key': String(window.PB_ADMIN_KEY || getSettings().adminKey || 'PB-ADMIN-2323')
         };
-        await fetch(`${window.SUPABASE_URL}/rest/v1/orders`, { method:'POST', headers, body: JSON.stringify([row]) });
-      }catch(e){ console.warn(e); }
+        const res = await fetch(`${window.SUPABASE_URL}/rest/v1/orders`, { method:'POST', headers, body: JSON.stringify([row]) });
+        if(!res.ok){
+          const t = await res.text().catch(()=> '');
+          console.warn('Supabase order insert failed:', t || res.status);
+        }
+      }catch(e){ console.warn('Supabase order save warning:', e); }
       return order;
     }
 
@@ -144,9 +163,15 @@ Payment status: Paid online`;
     function showWhatsApp(url){
       const box = document.getElementById('waBox');
       const btn = document.getElementById('waBtn');
+      const text = document.getElementById('waText');
       box.style.display = 'block';
       btn.href = url;
-      setTimeout(()=>{ window.location.href = url; }, 1200);
+      btn.onclick = ()=>{ try{ window.open(url, '_blank'); }catch(e){} };
+      text.textContent = 'Opening WhatsApp automatically... If it does not open, press the button below.';
+      setTimeout(()=>{
+        try{ window.open(url, '_blank'); }catch(e){}
+        try{ window.location.href = url; }catch(e){}
+      }, 1200);
     }
 
     (async function(){
@@ -157,7 +182,7 @@ Payment status: Paid online`;
         return;
       }
       try{
-        const res = await fetch(`/.netlify/functions/verify-session?session_id=${encodeURIComponent(sessionId)}`);
+        const res = await fetch(`/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
         const data = await res.json();
         if(!res.ok || !data.paid) throw new Error(data.error || 'Payment not confirmed');
         const savedOrder = await saveFinalOrder(data.session);
@@ -168,7 +193,9 @@ Payment status: Paid online`;
         showWhatsApp(buildWhatsAppUrl(savedOrder));
       }catch(err){
         console.error(err);
-        document.getElementById('statusText').textContent = err.message || 'Payment verification failed.';
+        document.getElementById('statusText').textContent = (err && err.message) ? err.message : 'Payment verification failed.';
+        document.getElementById('waBox').style.display = 'block';
+        document.getElementById('waText').textContent = 'WhatsApp did not open automatically. You can go back home or try the WhatsApp button after payment is confirmed.';
       }
     })();
   </script>

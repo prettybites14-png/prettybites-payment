@@ -169,7 +169,7 @@
         submitBtn.disabled = true;
         submitBtn.textContent = 'Opening secure checkout...';
 
-        const res = await fetch('/.netlify/functions/create-checkout-session', {
+        const res = await fetch('/api/create-checkout-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -186,7 +186,7 @@
         }
         throw new Error('Stripe checkout URL is missing.');
       }catch(err){
-        paymentError.textContent = (err.message || 'Payment could not start.') + ' If you still see an error, check /.netlify/functions/debug-stripe-env';
+        paymentError.textContent = (err.message || 'Payment could not start.') + ' If you still see an error, check /api/debug-stripe-env';
         submitBtn.disabled = false;
         submitBtn.innerHTML = 'Pay Now <span id="payAmount">' + document.getElementById('tot').textContent + '</span>';
       }
