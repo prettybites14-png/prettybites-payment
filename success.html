@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pretty Bites - Payment Success</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="assets/config.js"></script>
+</head>
+<body>
+  <a class="backBtn" href="index.html">Home</a>
+  <main class="container" style="max-width:780px">
+    <div class="pageCard" style="text-align:center;padding:32px 20px;margin-top:32px">
+      <div class="sectionTitle" style="margin-top:0">Payment Successful</div>
+      <p id="statusText" class="muted">Confirming your payment and preparing your WhatsApp invoice...</p>
+      <div id="summaryBox" style="display:none;text-align:left;margin-top:18px"></div>
+      <div id="waBox" style="display:none;margin-top:20px">
+        <p class="muted" id="waText">Opening WhatsApp automatically...</p>
+        <a class="btn btnPrimary" id="waBtn" href="#" target="_blank" rel="noopener">Send Invoice on WhatsApp</a>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px">
+        <a class="btn" href="index.html">Back to Home</a>
+        <a class="btn" href="admin/orders.html">Admin Orders</a>
+      </div>
+    </div>
+  </main>
+  <div class="toast" id="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    ensureData();
+    applyTheme();
+
+    async function saveFinalOrder(session){
+      const md = session.metadata || {};
+      const mode = md.order_mode || 'cart';
+      const items = (()=>{ try{return JSON.parse(md.items_json||'[]')}catch(e){return []} })();
+      if(mode === 'weekly'){
+        const order = {
+          id: session.id,
+          status: 'paid',
+          createdAt: new Date().toISOString(),
+          customerName: md.customer_name || (session.customer_details && session.customer_details.name) || '',
+          customerPhone: md.customer_phone || '',
+          address: md.address || '',
+          deliveryType: md.delivery_type || 'pickup',
+          deliveryTime: md.time || '',
+          notes: md.notes || '',
+          packagePrice: Number(md.package_price || 0),
+          deliveryFeePerDay: Number(md.delivery_days || 0) ? Number(md.delivery_fee || 0) / Number(md.delivery_days || 1) : 0,
+          deliveryDays: Number(md.delivery_days || 5),
+          total: Number(md.total || 0),
+          planTitle: md.plan_title || 'Weekly Meal Plan',
+          items: items
+        };
+        await pbPushWeeklyOrder(order);
+        return order;
+      }
+      const payload = {
+        customerName: md.customer_name || (session.customer_details && session.customer_details.name) || '',
+        customerPhone: md.customer_phone || '',
+        deliveryType: md.delivery_type || 'pickup',
+        address: md.address || '',
+        day: md.day || '',
+        time: md.time || '',
+        notes: md.notes || '',
+        items: items,
+        subtotal: Number(md.total || 0) - Number(md.delivery_fee || 0),
+        deliveryFee: Number(md.delivery_fee || 0),
+        total: Number(md.total || 0)
+      };
+      const order = createOrder(payload);
+      order.id = session.id;
+      order.status = 'paid';
+      const row = {
+        id: order.id,
+        status: 'paid',
+        order_no: order.orderNo,
+        created_at: order.createdAt,
+        total: order.total,
+        delivery_type: order.deliveryType,
+        customer_name: order.customerName,
+        customer_phone: order.customerPhone,
+        admin_key: String(window.PB_ADMIN_KEY || getSettings().adminKey || 'PB-ADMIN-2323'),
+        data: order
+      };
+      try{
+        const headers = {
+          'apikey': window.SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=representation'
+        };
+        await fetch(`${window.SUPABASE_URL}/rest/v1/orders`, { method:'POST', headers, body: JSON.stringify([row]) });
+      }catch(e){ console.warn(e); }
+      return order;
+    }
+
+    function renderSummary(order){
+      const box = document.getElementById('summaryBox');
+      const items = (order.items||[]).map(it => `<div class="kv"><span>${it.name || it.label || ''}${it.qty ? ' ×'+it.qty : ''}</span><b>${it.price ? money(it.price) : ''}</b></div>`).join('');
+      box.innerHTML = `
+        <div class="pageCard" style="padding:16px">
+          <div class="kv"><span>Customer</span><b>${order.customerName || ''}</b></div>
+          <div class="kv"><span>Type</span><b>${order.deliveryType === 'delivery' ? 'Delivery' : 'Pickup'}</b></div>
+          <div class="kv"><span>Total</span><b>${money(order.total || 0)}</b></div>
+          ${items}
+        </div>`;
+      box.style.display = 'block';
+    }
+
+    function buildWhatsAppUrl(order){
+      const s = getSettings();
+      const storePhone = String((s.whatsappPhone || '12263453432')).replace(/\D/g,'');
+      const storeName = s.storeName || 'Pretty Bites';
+      const products = (order.items || []).map(p => `${p.name || p.label || 'Item'} ×${p.qty || 1}`).join('\n');
+      const msg = `🧁 ${storeName}
+
+طلب جديد (#${order.orderNo || String(Date.now()).slice(-6)})
+
+الاسم: ${order.customerName || '-'}
+الهاتف: ${order.customerPhone || '-'}
+
+Order Type: ${order.deliveryType === 'delivery' ? 'Delivery' : 'Pickup'}
+Address: ${order.deliveryType === 'delivery' ? (order.address || '-') : '-'}
+
+Day: ${order.day || 'Paid online'}
+Time: ${order.time || order.deliveryTime || '-'}
+
+Items:
+${products || '-'}
+
+Subtotal: ${money(order.subtotal || order.packagePrice || order.total || 0)}
+Delivery: ${money(order.deliveryFee || ((order.deliveryType==='delivery' && order.total && order.packagePrice) ? (order.total - order.packagePrice) : 0))}
+Total: ${money(order.total || 0)}
+
+Notes:
+${order.notes || '-'}
+
+Payment status: Paid online`;
+      return `https://wa.me/${storePhone}?text=${encodeURIComponent(msg)}`;
+    }
+
+    function showWhatsApp(url){
+      const box = document.getElementById('waBox');
+      const btn = document.getElementById('waBtn');
+      box.style.display = 'block';
+      btn.href = url;
+      setTimeout(()=>{ window.location.href = url; }, 1200);
+    }
+
+    (async function(){
+      const params = new URLSearchParams(location.search);
+      const sessionId = params.get('session_id');
+      if(!sessionId){
+        document.getElementById('statusText').textContent = 'Missing payment details.';
+        return;
+      }
+      try{
+        const res = await fetch(`/.netlify/functions/verify-session?session_id=${encodeURIComponent(sessionId)}`);
+        const data = await res.json();
+        if(!res.ok || !data.paid) throw new Error(data.error || 'Payment not confirmed');
+        const savedOrder = await saveFinalOrder(data.session);
+        renderSummary(savedOrder);
+        document.getElementById('statusText').textContent = 'Payment confirmed. Redirecting you to WhatsApp now...';
+        clearCart();
+        ring();
+        showWhatsApp(buildWhatsAppUrl(savedOrder));
+      }catch(err){
+        console.error(err);
+        document.getElementById('statusText').textContent = err.message || 'Payment verification failed.';
+      }
+    })();
+  </script>
+
+<footer class="siteFooter">
+  <div class="container footerPaymentsOnly">
+    <div class="footerPaymentsText">Apple Pay • Visa • Mastercard • Stripe</div>
+    <div class="footerCopy">© 2026 Pretty Bites</div>
+  </div>
+</footer>
+
+</body>
+</html>

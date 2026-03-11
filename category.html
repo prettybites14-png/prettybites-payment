@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><title>Pretty Bites - Menu</title><link rel="stylesheet" href="assets/style.css" /><script src="assets/config.js"></script></head><body>
+<a class="backBtn" id="backBtn" href="#" onclick="history.length>1?history.back():location.href='index.html';return false;">Back</a><a class="adminHomeBtn" href="admin/login.html">Admin</a>
+<div class="topbar"><a class="brand" href="index.html">Home</a><div class="actions navRow"><a class="btn" href="weekly-meals.html">Weekly Meal Plan</a><a class="btn" href="#" id="openCart">🛒 <span data-cart-badge>0</span></a></div></div>
+<main class="container"><div class="sectionTitle" id="catTitle">Menu</div><section class="prodGrid" id="prodGrid"></section></main>
+<div id="modalBack" class="modalBack" style="display:none"><div class="modal" onclick="event.stopPropagation()"><div class="row"><div class="thumb" id="mThumb"></div><div style="flex:1"><div style="font-weight:1000;font-size:18px" id="mName"></div><div style="opacity:.9" id="mPrice"></div><div class="mini">Quantity</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px"><button class="qBtn" id="qDec">-</button><div style="min-width:24px;text-align:center;font-weight:900" id="qVal">1</div><button class="qBtn" id="qInc">+</button><button class="cta" style="margin-inline-start:auto" id="addBtn">Add to Cart</button></div></div><button class="xBtn" id="mClose">×</button></div></div></div>
+<div class="drawerOverlay" id="drawerOverlay"></div><aside class="drawer" id="drawer"><div style="display:flex;align-items:center;justify-content:space-between"><div style="font-weight:800;font-size:18px">Your Cart</div><button class="xBtn" id="closeCart">×</button></div><div id="cartList" style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px"></div><div class="hr" style="display:flex;justify-content:space-between"><div style="opacity:.85">Subtotal</div><div style="font-weight:900" id="cartSubtotal">$0.00</div></div><a class="btn btnPrimary" href="checkout.html" style="text-align:center">Checkout</a></aside>
+<div class="toast" id="toast"></div>
+<script src="assets/app.js"></script><script>
+ensureData();updateCartBadge();const norm=v=>decodeURIComponent(String(v||"")).trim();const slug=norm(qs("slug")||"sweets");
+function renderCategory(){applyTheme();const cards=getCards();const card=cards.find(c=>norm(c.slug)===slug);document.getElementById("catTitle").textContent=card?card.title:"Menu";const products=getProducts().filter(p=>norm(p.slug)===slug&&p.enabled&&p.available);document.getElementById("prodGrid").innerHTML=products.map(p=>`<button class="prodTile" onclick="openProduct('${p.id}')"><div class="prodImg">${p.image?`<img src="${p.image}" alt="">`:""}<div class="prodShade"></div></div><div class="prodName">${escapeHtml(p.name)}</div>${p.desc?`<div class="pdesc">${escapeHtml(p.desc)}</div>`:""}<div class="prodPrice">${money(p.price)}</div></button>`).join("");}
+renderCategory();pbSyncCatalogFromSupabase().then(renderCategory).catch(()=>{});window.pbRealtimeRefresh=()=>{renderCategory();renderCart();};pbEnableRealtime(window.pbRealtimeRefresh);
+let picked=null,qty=1;const back=document.getElementById('modalBack'),qVal=document.getElementById('qVal');window.openProduct=id=>{picked=getProducts().find(x=>x.id===id);qty=1;qVal.textContent=qty;document.getElementById('mName').textContent=picked.name;document.getElementById('mPrice').textContent=money(picked.price);document.getElementById('mThumb').innerHTML=picked.image?`<img src="${picked.image}" alt="">`:'';back.style.display='flex';};function closeModal(){back.style.display='none';}document.getElementById('mClose').onclick=closeModal;back.onclick=closeModal;document.getElementById('qInc').onclick=()=>{qty++;qVal.textContent=qty;};document.getElementById('qDec').onclick=()=>{qty=Math.max(1,qty-1);qVal.textContent=qty;};document.getElementById('addBtn').onclick=()=>{if(!picked)return;addToCart(picked,qty);closeModal();renderCart();};
+const overlay=document.getElementById('drawerOverlay'),drawer=document.getElementById('drawer');document.getElementById('openCart').onclick=e=>{e.preventDefault();openDrawer();};document.getElementById('closeCart').onclick=closeDrawer;overlay.onclick=closeDrawer;function openDrawer(){overlay.classList.add('open');drawer.classList.add('open');renderCart();}function closeDrawer(){overlay.classList.remove('open');drawer.classList.remove('open');}function renderCart(){const items=getCart(),list=document.getElementById('cartList');if(!items.length){list.innerHTML=`<div style="opacity:.8">Cart is empty</div>`;}else{list.innerHTML=items.map(it=>`<div class="cartItem"><div class="cartThumb">${it.image?`<img src="${it.image}" alt="">`:''}</div><div style="flex:1"><div style="font-weight:700">${escapeHtml(it.name)}</div><div style="opacity:.85">${money(it.price)}</div><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><button class="btn" style="padding:6px 10px" onclick="decCart('${it.id}'); renderCart();">-</button><div style="min-width:18px;text-align:center">${it.qty}</div><button class="btn" style="padding:6px 10px" onclick="incCart('${it.id}'); renderCart();">+</button><button class="btn" style="padding:6px 10px;margin-inline-start:auto" onclick="removeCart('${it.id}'); renderCart();">Remove</button></div></div></div>`).join('');}document.getElementById('cartSubtotal').textContent=money(cartSubtotal());updateCartBadge();}
+function escapeHtml(str){return String(str||"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));}
+</script><script>(function(){const btn=document.getElementById('backBtn');if(!btn)return;const path=(location.pathname||'').toLowerCase();const isHome=path.endsWith('/index.html')||path==='/'||path===''||path.endsWith('/');if(isHome)btn.style.display='none';})();</script>
+<footer class="siteFooter">
+  <div class="container footerPro">
+    <div class="footerTop">
+      <div class="footerBrandCard">
+        <div class="footerLogo">Pretty Bites</div>
+        <div class="footerText">Fresh homemade desserts, weekly meal plans, pickup and delivery for Windsor and nearby areas.</div>
+        <div class="footerMiniRow">
+          <a class="footerBtn footerBtnPrimary" href="pages/contact.html">Contact Us</a>
+          <a class="footerBtn" href="https://www.instagram.com/prettybitesdelights?igsh=MWp3MWJpMTExaTI1ZA==" target="_blank" rel="noopener">Instagram</a>
+        </div>
+      </div>
+    </div>
+    <div class="footerBottom">
+<div class="footerPayments">
+        <span class="payBadge">Apple Pay</span>
+        <span class="payBadge">Visa</span>
+        <span class="payBadge">Mastercard</span>
+        <span class="payBadge">Stripe</span>
+      </div>
+    </div>
+    <div class="footerCopy">© 2026 Pretty Bites</div>
+  </div>
+</footer>
+
+</body></html>

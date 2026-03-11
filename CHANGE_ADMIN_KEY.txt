@@ -1,0 +1,13 @@
+Changing Admin Key (Editable)
+1) Go to admin/settings.html
+2) Set: مفتاح الأدمن (لـ Supabase)
+3) Save
+
+Important:
+- After changing the key, run this in Supabase SQL Editor (update existing rows):
+update public.orders set admin_key = '<NEW_KEY>' where admin_key = '<OLD_KEY>';
+Or just keep the same key if you already have orders.
+
+Security note:
+This 'admin key' is stored in the website settings, so anyone who can inspect the site could see it.
+For stronger security, we can use Supabase Auth for admin later.

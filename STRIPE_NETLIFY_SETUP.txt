@@ -1,0 +1,18 @@
+Stripe unified checkout setup (Netlify)
+
+1) In Netlify > Site settings > Environment variables, add:
+   STRIPE_SECRET_KEY = your Stripe live or test secret key
+   SITE_URL = https://prettybites.ca
+
+2) Deploy this version to Netlify.
+3) Netlify will install the stripe package from package.json automatically.
+4) Product checkout uses checkout.html.
+5) Weekly Meal Plan checkout uses weekly-meals.html.
+6) After successful payment, the site returns to success.html, saves the order to Supabase, and opens WhatsApp invoice.
+
+
+Direct card checkout now uses these Netlify environment variables:
+- STRIPE_SECRET_KEY
+- STRIPE_PUBLISHABLE_KEY
+
+Keep only card payments enabled in Stripe Dashboard if you want card-only checkout.

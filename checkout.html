@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pretty Bites - Checkout</title>
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="assets/config.js"></script>
+</head>
+<body>
+  <a class="backBtn" id="backBtn" href="#" onclick="history.length>1?history.back():location.href='index.html';return false;">Back</a>
+  <a class="adminHomeBtn" href="admin/login.html">Admin</a>
+  <div class="topbar">
+    <a class="brand" href="index.html">Home</a>
+    <div class="actions">
+      <a class="btn" href="#" id="openCart">🛒 <span data-cart-badge>0</span></a>
+    </div>
+  </div>
+
+  <main class="container checkoutSplitWrap">
+    <section>
+      <div class="sectionTitle">Checkout</div>
+      <div class="formCard">
+        <label class="lbl">Full Name</label>
+        <input class="inp" id="name" />
+
+        <label class="lbl">Phone Number</label>
+        <input class="inp" id="phone" inputmode="tel" />
+
+        <label class="lbl">Order Type</label>
+        <div class="pills">
+          <button class="pill on" id="pPickup">Pickup</button>
+          <button class="pill" id="pDelivery">Delivery</button>
+        </div>
+
+        <div id="addrWrap" style="display:none">
+          <label class="lbl">Address</label>
+          <input class="inp" id="address" />
+        </div>
+
+        <label class="lbl">Day</label>
+        <input class="inp" id="day" type="date" />
+
+        <label class="lbl">Time</label>
+        <input class="inp" id="time" type="time" />
+
+        <label class="lbl">Notes (optional)</label>
+        <textarea class="inp" id="notes" style="min-height:90px"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <div class="sectionTitle">Payment</div>
+      <div class="formCard paymentCardDirect">
+        <div class="directPayIntro">
+          <div class="directPayBadge">Stripe Checkout</div>
+          <div class="directPayText">You will go to Stripe's secure payment page, then return automatically to Pretty Bites.</div>
+        </div>
+
+        <div class="orderTotalsBox">
+          <div class="kv"><span>Subtotal</span><b id="sub">$0.00</b></div>
+          <div class="kv"><span>Delivery</span><b id="del">$0.00</b></div>
+          <div class="kv totalRow"><span>Total</span><b id="tot">$0.00</b></div>
+        </div>
+
+        <div id="paymentError" class="paymentError" aria-live="polite"></div>
+        <button class="btn btnPrimary directPayBtn" id="submit" type="button">Pay Now <span id="payAmount">$0.00</span></button>
+        <div class="paymentMiniNote">After payment, you will return to the website automatically and WhatsApp will open with your invoice message.</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="drawerOverlay" id="drawerOverlay"></div>
+  <aside class="drawer" id="drawer">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:800;font-size:18px">Cart</div>
+      <button class="xBtn" id="closeCart">×</button>
+    </div>
+    <div id="cartList" style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px"></div>
+    <div class="hr" style="display:flex;justify-content:space-between">
+      <div style="opacity:.85">Subtotal</div>
+      <div style="font-weight:900" id="cartSubtotal">$0.00</div>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="assets/app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.sb=supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);</script>
+  <script>
+    ensureData();
+    applyTheme();
+    updateCartBadge();
+
+    let deliveryType = "pickup";
+    const addrWrap = document.getElementById("addrWrap");
+    const submitBtn = document.getElementById('submit');
+    const paymentError = document.getElementById('paymentError');
+
+    function setType(t){
+      deliveryType = t;
+      if(t === "pickup"){
+        document.getElementById("pPickup").classList.add("on");
+        document.getElementById("pDelivery").classList.remove("on");
+        addrWrap.style.display = "none";
+      } else {
+        document.getElementById("pDelivery").classList.add("on");
+        document.getElementById("pPickup").classList.remove("on");
+        addrWrap.style.display = "block";
+      }
+      recalc();
+    }
+
+    document.getElementById("pPickup").onclick = (e)=>{ e.preventDefault(); setType("pickup"); };
+    document.getElementById("pDelivery").onclick = (e)=>{ e.preventDefault(); setType("delivery"); };
+
+    function recalc(){
+      const sub = cartSubtotal();
+      const s = getSettings();
+      const deliveryFee = Number(s.deliveryFee ?? 3);
+      const fee = (deliveryType === "delivery") ? deliveryFee : 0;
+      const total = sub + fee;
+      document.getElementById("sub").textContent = money(sub);
+      document.getElementById("del").textContent = money(fee);
+      document.getElementById("tot").textContent = money(total);
+      document.getElementById("payAmount").textContent = money(total);
+      return { sub, fee, total };
+    }
+    recalc();
+
+    function validateOrder(){
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const address = document.getElementById('address').value.trim();
+      const day = document.getElementById('day').value;
+      const time = document.getElementById('time').value;
+      const notes = document.getElementById('notes').value.trim();
+      const items = getCart();
+      const totals = recalc();
+
+      if(!items.length) throw new Error('Your cart is empty.');
+      if(!name) throw new Error('Please enter your full name.');
+      if(!phone) throw new Error('Please enter your phone number.');
+      if(deliveryType === 'delivery' && !address) throw new Error('Please enter your address for delivery.');
+      if(!day) throw new Error('Please choose the day.');
+      if(!time) throw new Error('Please choose the time.');
+
+      return {
+        customerName: name,
+        customerPhone: phone,
+        deliveryType,
+        address: deliveryType === 'delivery' ? address : '',
+        day,
+        time,
+        notes,
+        items,
+        subtotal: totals.sub,
+        deliveryFee: totals.fee,
+        total: totals.total,
+        mode: 'cart'
+      };
+    }
+
+    submitBtn.addEventListener('click', async ()=>{
+      paymentError.textContent = '';
+      try{
+        const payload = validateOrder();
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Opening secure checkout...';
+
+        const res = await fetch('/.netlify/functions/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || 'Could not create checkout session.');
+        if(data.url){
+          window.location.href = data.url;
+          return;
+        }
+        if(data.id){
+          window.location.href = '/success.html?session_id=' + encodeURIComponent(data.id);
+          return;
+        }
+        throw new Error('Stripe checkout URL is missing.');
+      }catch(err){
+        paymentError.textContent = (err.message || 'Payment could not start.') + ' If you still see an error, check /.netlify/functions/debug-stripe-env';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Pay Now <span id="payAmount">' + document.getElementById('tot').textContent + '</span>';
+      }
+    });
+
+    const overlay = document.getElementById("drawerOverlay");
+    const drawer = document.getElementById("drawer");
+    document.getElementById("openCart").onclick = (e)=>{ e.preventDefault(); openDrawer(); };
+    document.getElementById("closeCart").onclick = closeDrawer;
+    overlay.onclick = closeDrawer;
+
+    function openDrawer(){ overlay.classList.add("open"); drawer.classList.add("open"); renderCart(); }
+    function closeDrawer(){ overlay.classList.remove("open"); drawer.classList.remove("open"); }
+
+    function renderCart(){
+      const items = getCart();
+      const list = document.getElementById("cartList");
+      if(!items.length){
+        list.innerHTML = `<div style="opacity:.8">Cart is empty</div>`;
+      }else{
+        list.innerHTML = items.map(it => `
+          <div class="cartItem">
+            <div class="cartThumb">${it.image ? `<img src="${it.image}" alt="">` : ""}</div>
+            <div style="flex:1">
+              <div style="font-weight:700">${escapeHtml(it.name)}</div>
+              <div style="opacity:.85">${money(it.price)}</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+                <button class="btn" style="padding:6px 10px" onclick="decCart('${it.id}'); renderCart(); recalc();">-</button>
+                <div style="min-width:18px;text-align:center">${it.qty}</div>
+                <button class="btn" style="padding:6px 10px" onclick="incCart('${it.id}'); renderCart(); recalc();">+</button>
+                <button class="btn" style="padding:6px 10px;margin-inline-start:auto" onclick="removeCart('${it.id}'); renderCart(); recalc();">حذف</button>
+              </div>
+            </div>
+          </div>
+        `).join("");
+      }
+      document.getElementById("cartSubtotal").textContent = money(cartSubtotal());
+      updateCartBadge();
+    }
+
+    function escapeHtml(str){
+      return String(str||"").replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
+    }
+  </script>
+
+<script>
+(function(){
+  const btn = document.getElementById('backBtn');
+  if(!btn) return;
+
+  const path = (location.pathname || '').toLowerCase();
+  const isHome = path.endsWith('/index.html') || path === '/' || path === '' || path.endsWith('/');
+  if(isHome) btn.style.display = 'none';
+})();
+</script>
+
+<footer class="siteFooter">
+  <div class="container footerPaymentsOnly">
+    <div class="footerPaymentsText">Apple Pay • Visa • Mastercard • Stripe</div>
+    <div class="footerCopy">© 2026 Pretty Bites</div>
+  </div>
+</footer>
+
+</body>
+</html>
