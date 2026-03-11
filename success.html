@@ -38,7 +38,7 @@
       if(mode === 'weekly'){
         const order = {
           id: session.id,
-          status: 'paid',
+          status: 'new',
           createdAt: new Date().toISOString(),
           customerName: md.customer_name || (session.customer_details && session.customer_details.name) || '',
           customerPhone: md.customer_phone || '',
@@ -54,7 +54,9 @@
           items: items,
           paymentVerifiedAt: new Date().toISOString()
         };
+        try{ const local = load('pb_weekly_orders_v1', []); const idx = local.findIndex(x => x.id === order.id); if(idx >= 0) local[idx] = order; else local.unshift(order); save('pb_weekly_orders_v1', local); }catch(e){ console.warn('Local weekly order save warning:', e); }
         await pbPushWeeklyOrder(order);
+        try{ const adminBtn = document.querySelector('a[href="admin/orders.html"]'); if(adminBtn){ adminBtn.href = 'admin/weekly-orders.html'; adminBtn.textContent = 'Weekly Orders'; } }catch(e){}
         return order;
       }
 
