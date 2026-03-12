@@ -749,8 +749,9 @@ async function pbWeeklyOrdersSelect(){
   return await pbRestSelect('pb_weekly_orders', q);
 }
 async function pbPushWeeklyOrder(order){
+  const safeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(order.id||'')) ? order.id : uid();
   const row = {
-    id: order.id || uid(),
+    id: safeId,
     status: order.status || 'new',
     // New schema used by the site
     customer_name: order.customerName || '',
@@ -771,7 +772,7 @@ async function pbPushWeeklyOrder(order){
     delivery_total: Number(order.deliveryFeePerDay || 0) * Number(order.deliveryDays || 5),
     notes: order.notes || '',
     created_at: order.createdAt || new Date().toISOString(),
-    data: order
+    data: { ...order, id: safeId }
   };
   return await pbRestUpsert('pb_weekly_orders', [row]);
 }

@@ -31,33 +31,106 @@
     ensureData();
     applyTheme();
 
+    function getPendingWeeklyOrder(){
+      try{ return JSON.parse(localStorage.getItem('pending_weekly_order')||'null'); }catch(e){ return null; }
+    }
+
+    function clearPendingWeeklyOrder(){
+      try{ localStorage.removeItem('pending_weekly_order'); }catch(e){}
+    }
+
+    async function verifyPaidSession(sessionId){
+      const endpoints = [`/api/verify-session?session_id=${encodeURIComponent(sessionId)}`, `/.netlify/functions/verify-session?session_id=${encodeURIComponent(sessionId)}`];
+      let lastError = 'Payment verification failed.';
+      for(const endpoint of endpoints){
+        try{
+          const res = await fetch(endpoint);
+          const data = await res.json().catch(()=>({}));
+          if(res.ok && data && data.paid) return data;
+          lastError = data.error || lastError;
+        }catch(err){
+          lastError = (err && err.message) || lastError;
+        }
+      }
+      throw new Error(lastError);
+    }
+
+    async function insertWeeklyOrderDirect(order){
+      const orderId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : uid();
+      const row = {
+        id: orderId,
+        status: order.status || 'paid',
+        customer_name: order.customerName || '',
+        customer_phone: order.customerPhone || '',
+        delivery_type: order.deliveryType || 'pickup',
+        address: order.address || '',
+        delivery_time: order.deliveryTime || '',
+        package_price: Number(order.packagePrice || 0),
+        delivery_fee_per_day: Number(order.deliveryFeePerDay || 0),
+        delivery_days: Number(order.deliveryDays || 5),
+        total: Number(order.total || 0),
+        full_name: order.customerName || '',
+        phone: order.customerPhone || '',
+        fulfillment_type: order.deliveryType || 'pickup',
+        preferred_time: order.deliveryTime || '',
+        weekly_price: Number(order.packagePrice || 0),
+        delivery_total: Number(order.deliveryFeePerDay || 0) * Number(order.deliveryDays || 5),
+        notes: order.notes || '',
+        created_at: order.createdAt || new Date().toISOString(),
+        data: {
+          ...order,
+          id: orderId,
+          stripeSessionId: order.stripeSessionId || ''
+        }
+      };
+
+      const res = await fetch(`${window.SUPABASE_URL}/rest/v1/pb_weekly_orders`, {
+        method: 'POST',
+        headers: {
+          'apikey': window.SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation',
+          'x-admin-key': String(window.PB_ADMIN_KEY || getSettings().adminKey || 'PB-ADMIN-2323')
+        },
+        body: JSON.stringify([row])
+      });
+
+      if(!res.ok){
+        const t = await res.text().catch(()=> '');
+        throw new Error(`INSERT pb_weekly_orders failed: ${res.status} ${t}`);
+      }
+
+      return { ...order, id: orderId };
+    }
+
     async function saveFinalOrder(session){
       const md = session.metadata || {};
       const mode = md.order_mode || 'cart';
       const items = (()=>{ try{return JSON.parse(md.items_json||'[]')}catch(e){return []} })();
-      if(mode === 'weekly'){
+      if(mode === 'weekly' || getPendingWeeklyOrder()){
+        const pending = getPendingWeeklyOrder() || {};
         const order = {
-          id: session.id,
-          status: 'new',
-          createdAt: new Date().toISOString(),
-          customerName: md.customer_name || (session.customer_details && session.customer_details.name) || '',
-          customerPhone: md.customer_phone || '',
-          address: md.address || '',
-          deliveryType: md.delivery_type || 'pickup',
-          deliveryTime: md.time || '',
-          notes: md.notes || '',
-          packagePrice: Number(md.package_price || 0),
-          deliveryFeePerDay: Number(md.delivery_days || 0) ? Number(md.delivery_fee || 0) / Number(md.delivery_days || 1) : 0,
-          deliveryDays: Number(md.delivery_days || 5),
-          total: Number(md.total || 0),
-          planTitle: md.plan_title || 'Weekly Meal Plan',
-          items: items,
+          stripeSessionId: String(session.id || ''),
+          status: 'paid',
+          createdAt: pending.createdAt || new Date().toISOString(),
+          customerName: md.customer_name || pending.customerName || (session.customer_details && session.customer_details.name) || '',
+          customerPhone: md.customer_phone || pending.customerPhone || '',
+          address: md.address || pending.address || '',
+          deliveryType: md.delivery_type || pending.deliveryType || 'pickup',
+          deliveryTime: md.time || pending.deliveryTime || '',
+          notes: md.notes || pending.notes || '',
+          packagePrice: Number(md.package_price || pending.packagePrice || 0),
+          deliveryFeePerDay: Number(md.delivery_days || pending.deliveryDays || 0) ? Number(md.delivery_fee || pending.deliveryFee || 0) / Number(md.delivery_days || pending.deliveryDays || 1) : 0,
+          deliveryDays: Number(md.delivery_days || pending.deliveryDays || 5),
+          total: Number(md.total || pending.total || 0),
+          planTitle: md.plan_title || pending.planTitle || 'Weekly Meal Plan',
+          items: items.length ? items : (pending.items || []),
           paymentVerifiedAt: new Date().toISOString()
         };
-        try{ const local = load('pb_weekly_orders_v1', []); const idx = local.findIndex(x => x.id === order.id); if(idx >= 0) local[idx] = order; else local.unshift(order); save('pb_weekly_orders_v1', local); }catch(e){ console.warn('Local weekly order save warning:', e); }
-        await pbPushWeeklyOrder(order);
-        try{ const adminBtn = document.querySelector('a[href="admin/orders.html"]'); if(adminBtn){ adminBtn.href = 'admin/weekly-orders.html'; adminBtn.textContent = 'Weekly Orders'; } }catch(e){}
-        return order;
+        const saved = await insertWeeklyOrderDirect(order);
+        clearPendingWeeklyOrder();
+        return saved;
       }
 
       const payload = {
@@ -184,9 +257,7 @@ Payment status: Paid online`;
         return;
       }
       try{
-        const res = await fetch(`/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
-        const data = await res.json();
-        if(!res.ok || !data.paid) throw new Error(data.error || 'Payment not confirmed');
+        const data = await verifyPaidSession(sessionId);
         const savedOrder = await saveFinalOrder(data.session);
         renderSummary(savedOrder);
         document.getElementById('statusText').textContent = 'Payment confirmed. Redirecting you to WhatsApp now...';
