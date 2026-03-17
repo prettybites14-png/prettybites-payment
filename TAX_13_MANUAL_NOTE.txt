@@ -1,0 +1,1 @@
+This version calculates 13% tax in the website and sends tax as a separate line item to Stripe. Stripe automatic_tax is disabled in the checkout-session functions.

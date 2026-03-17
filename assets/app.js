@@ -84,6 +84,8 @@ const DEFAULTS = {
     whatsappPhone: "12263453432",
     adminPassword: "2323",
     adminKey: "PB-ADMIN-2323",
+    deliveryFee: 5,
+    taxRate: 0.13,
     theme: {
       pageBg: "#0b0f1a",
       cardOverlay: "rgba(0,0,0,.25)",
@@ -318,6 +320,8 @@ function pbMapSettingsRow(row, kind){
     adminPassword: row.admin_password || row.adminPassword || (row.data && row.data.adminPassword) || base.adminPassword,
     adminKey: row.admin_key || row.adminKey || (row.data && row.data.adminKey) || base.adminKey,
     heroImage: row.hero_image || row.heroImage || (row.data && row.data.heroImage) || base.heroImage,
+    deliveryFee: Number(row.delivery_fee ?? row.deliveryFee ?? (row.data && row.data.deliveryFee) ?? base.deliveryFee ?? 5),
+    taxRate: Number(row.tax_rate ?? row.taxRate ?? (row.data && row.data.taxRate) ?? base.taxRate ?? 0.13),
     theme: row.theme || (row.data && row.data.theme) || base.theme
   };
 }
@@ -436,6 +440,8 @@ async function pbPushSettingsToSupabase(settings){
     admin_password: settings.adminPassword || "",
     admin_key: window.PB_ADMIN_KEY || "PB-ADMIN-2323",
     hero_image: settings.heroImage || "",
+    delivery_fee: Number(settings.deliveryFee ?? 5),
+    tax_rate: Number(settings.taxRate ?? 0.13),
     theme: settings.theme || {}
   };
   return await pbRestUpsert(detected.table, [row]);
@@ -535,6 +541,7 @@ ${products}
 
 Subtotal: ${money(order.subtotal)}
 Delivery: ${money(order.deliveryFee)}
+Tax: ${money(order.taxAmount || 0)}
 Total: ${money(order.total)}
 
 Notes:

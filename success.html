@@ -123,6 +123,8 @@
           packagePrice: Number(md.package_price || pending.packagePrice || 0),
           deliveryFeePerDay: Number(md.delivery_days || pending.deliveryDays || 0) ? Number(md.delivery_fee || pending.deliveryFee || 0) / Number(md.delivery_days || pending.deliveryDays || 1) : 0,
           deliveryDays: Number(md.delivery_days || pending.deliveryDays || 5),
+          taxAmount: Number(md.tax_amount || pending.taxAmount || 0),
+          taxRate: Number(md.tax_rate || pending.taxRate || 0.13),
           total: Number(md.total || pending.total || 0),
           planTitle: md.plan_title || pending.planTitle || 'Weekly Meal Plan',
           items: items.length ? items : (pending.items || []),
@@ -142,8 +144,10 @@
         time: md.time || '',
         notes: md.notes || '',
         items: items,
-        subtotal: Number(md.total || 0) - Number(md.delivery_fee || 0),
+        subtotal: Number(md.subtotal || 0),
         deliveryFee: Number(md.delivery_fee || 0),
+        taxAmount: Number(md.tax_amount || 0),
+        taxRate: Number(md.tax_rate || 0.13),
         total: Number(md.total || 0)
       };
 
@@ -197,7 +201,7 @@
         <div class="pageCard" style="padding:16px">
           <div class="kv"><span>Customer</span><b>${order.customerName || ''}</b></div>
           <div class="kv"><span>Type</span><b>${order.deliveryType === 'delivery' ? 'Delivery' : 'Pickup'}</b></div>
-          <div class="kv"><span>Total</span><b>${money(order.total || 0)}</b></div>
+          <div class="kv"><span>Tax</span><b>${money(order.taxAmount || 0)}</b></div><div class="kv"><span>Total</span><b>${money(order.total || 0)}</b></div>
           ${items}
         </div>`;
       box.style.display = 'block';

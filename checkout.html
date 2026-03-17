@@ -60,6 +60,7 @@
         <div class="orderTotalsBox">
           <div class="kv"><span>Subtotal</span><b id="sub">$0.00</b></div>
           <div class="kv"><span>Delivery</span><b id="del">$0.00</b></div>
+          <div class="kv"><span>Tax (13%)</span><b id="tax">$0.00</b></div>
           <div class="kv totalRow"><span>Total</span><b id="tot">$0.00</b></div>
         </div>
 
@@ -119,13 +120,17 @@
       const sub = cartSubtotal();
       const s = getSettings();
       const deliveryFee = Number(s.deliveryFee ?? 3);
+      const taxRate = Number(s.taxRate ?? 0.13);
       const fee = (deliveryType === "delivery") ? deliveryFee : 0;
-      const total = sub + fee;
+      const taxableAmount = sub + fee;
+      const tax = Number((taxableAmount * taxRate).toFixed(2));
+      const total = Number((taxableAmount + tax).toFixed(2));
       document.getElementById("sub").textContent = money(sub);
       document.getElementById("del").textContent = money(fee);
+      document.getElementById("tax").textContent = money(tax);
       document.getElementById("tot").textContent = money(total);
       document.getElementById("payAmount").textContent = money(total);
-      return { sub, fee, total };
+      return { sub, fee, tax, total, taxRate };
     }
     recalc();
 
@@ -157,6 +162,8 @@
         items,
         subtotal: totals.sub,
         deliveryFee: totals.fee,
+        taxRate: totals.taxRate,
+        taxAmount: totals.tax,
         total: totals.total,
         mode: 'cart'
       };

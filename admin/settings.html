@@ -36,6 +36,10 @@
       <input class="inp" id="deliveryFee" type="number" step="0.01" placeholder="مثال: 5" />
       <div class="hint" style="opacity:.8;margin-top:6px">يمكنك تغييرها من هنا، وستطبق على الإجمالي والفاتورة تلقائياً.</div>
 
+      <label class="lbl">Tax (%)</label>
+      <input class="inp" id="taxRate" type="number" step="0.01" placeholder="مثال: 13" />
+      <div class="hint" style="opacity:.8;margin-top:6px">اكتب نسبة التاكس مثل 13 وسيتم احتسابها تلقائياً في الموقع والدفع.</div>
+
       <label class="lbl">كلمة سر الأدمن</label>
       <input class="inp" id="adminPassword" inputmode="numeric" placeholder="افتراضي: 2323" />
       <div class="hint" style="opacity:.8;margin-top:6px">غيّرها إذا حبيت. إذا تركتها فاضية رح تبقى 2323.</div>
@@ -106,6 +110,9 @@
     }
     const heroImgLoaded = true;
     document.getElementById("whatsapp").value = String(s.whatsappPhone||"").replace(/\D/g,"");
+    document.getElementById("deliveryFee").value = String(s.deliveryFee ?? 5);
+    document.getElementById("taxRate").value = String(Number(s.taxRate ?? 0.13) * 100);
+    document.getElementById("adminPassword").value = s.adminPassword || "2323";
     document.getElementById("pageBg").value = s.theme?.pageBg || "#0b0f1a";
     document.getElementById("overlay").value = s.theme?.cardOverlay || "rgba(0,0,0,.25)";
     document.getElementById("g1").value = (s.theme?.gradientText||[])[0] || "#ff3d8d";
@@ -126,6 +133,8 @@
       next.whatsappPhone = String(document.getElementById("whatsapp").value).replace(/\D/g,"") || "12263453432";
       const df = Number(document.getElementById("deliveryFee").value);
       next.deliveryFee = Number.isFinite(df) ? df : 5;
+      const tr = Number(document.getElementById("taxRate").value);
+      next.taxRate = Number.isFinite(tr) ? (tr / 100) : 0.13;
       const ap = document.getElementById("adminPassword").value.trim();
       next.adminPassword = ap || "2323";
       const ak = (document.getElementById("adminKey")?.value || "").trim();

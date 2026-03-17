@@ -1,0 +1,1 @@
+Admin settings now includes a Tax (%) field. The website checkout and weekly plan use settings.taxRate dynamically. Enter 13 to apply 13%.

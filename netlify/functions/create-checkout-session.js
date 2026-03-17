@@ -47,6 +47,10 @@ exports.handler = async (event) => {
       day: String(body.day || ""),
       time: String(body.time || body.deliveryTime || ""),
       notes: String(body.notes || "").slice(0, 450),
+      subtotal: String(body.subtotal || 0),
+      delivery_fee: String(body.deliveryFee || 0),
+      tax_rate: String(body.taxRate || 0.13),
+      tax_amount: String(body.taxAmount || 0),
       total: String(body.total || 0)
     };
 
@@ -116,20 +120,30 @@ exports.handler = async (event) => {
           quantity: 1
         });
       }
+      const taxAmount = Number(body.taxAmount || 0);
+      if (taxAmount > 0) {
+        line_items.push({
+          price_data: {
+            currency,
+            product_data: { name: "HST (13%)" },
+            unit_amount: Math.round(taxAmount * 100)
+          },
+          quantity: 1
+        });
+      }
       metadata.delivery_fee = String(deliveryFee || 0);
+      metadata.tax_amount = String(taxAmount || 0);
       metadata.items_json = JSON.stringify(items).slice(0, 450);
     }
 
     const session = await stripe.checkout.sessions.create({
-      automatic_tax: { enabled: true },
-      billing_address_collection: 'required',
-      shipping_address_collection: { allowed_countries: ['CA'] },
+      
       mode: "payment",
       line_items,
       success_url: `${siteUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/${mode === "weekly" ? "weekly-meals.html" : "cancel.html"}`,
       metadata,
-      billing_address_collection: "auto",
+      billing_address_collection: "required",
       phone_number_collection: { enabled: false },
       shipping_address_collection: body.deliveryType === "delivery" ? { allowed_countries: ["CA"] } : undefined,
       allow_promotion_codes: false
