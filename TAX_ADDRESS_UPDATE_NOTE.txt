@@ -1,0 +1,3 @@
+Added Stripe automatic tax, required billing address collection, and shipping address collection for Canada.
+Modified files:
+netlify/functions/create-checkout-session.js
