@@ -1,0 +1,3 @@
+Added Stripe automatic tax and required billing address collection.
+Modified files:
+netlify/functions/create-checkout-session.js
