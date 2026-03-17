@@ -1,3 +1,4 @@
+<!-- force deploy clean cloudflare tax -->
 <!doctype html>
 <html lang="en" dir="ltr">
 <head>
@@ -120,7 +121,7 @@
       const sub = cartSubtotal();
       const s = getSettings();
       const deliveryFee = Number(s.deliveryFee ?? 3);
-      const taxRate = Number(s.taxRate ?? 0.13);
+      const taxRate = Number(s.taxRate ?? s.tax_rate ?? 0.13);
       const fee = (deliveryType === "delivery") ? deliveryFee : 0;
       const taxableBase = sub + fee;
       const tax = taxableBase * taxRate;
