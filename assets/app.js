@@ -134,19 +134,8 @@ function ensureData(){
   if(!o) save(LS.orders, DEFAULTS.orders);
 }
 
-function normalizeSettings(obj){
-  const s = Object.assign({}, DEFAULTS.settings, obj || {});
-  if (typeof s.taxRate !== "number") {
-    const alias = Number(s.tax_rate);
-    if (Number.isFinite(alias)) s.taxRate = alias;
-  }
-  if (!Number.isFinite(Number(s.taxRate))) s.taxRate = 0.13;
-  s.tax_rate = Number(s.taxRate);
-  s.theme = Object.assign({}, DEFAULTS.settings.theme, s.theme || {});
-  return s;
-}
-function getSettings(){ ensureData(); return normalizeSettings(load(LS.settings, DEFAULTS.settings)); }
-function setSettings(next){ const normalized = normalizeSettings(next); save(LS.settings, normalized); pbNotifyCatalogChanged("settings"); pbPushSettingsToSupabase(normalized).catch(console.warn); }
+function getSettings(){ ensureData(); return load(LS.settings, DEFAULTS.settings); }
+function setSettings(next){ save(LS.settings, next); pbNotifyCatalogChanged("settings"); pbPushSettingsToSupabase(next).catch(console.warn); }
 
 function getCards(){ ensureData(); return load(LS.cards, DEFAULTS.cards); }
 function setCards(next){ save(LS.cards, next); pbNotifyCatalogChanged("cards"); pbPushCardsToSupabase(next).catch(console.warn); }

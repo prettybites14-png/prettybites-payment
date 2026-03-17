@@ -36,12 +36,9 @@
       <input class="inp" id="deliveryFee" type="number" step="0.01" placeholder="مثال: 5" />
       <div class="hint" style="opacity:.8;margin-top:6px">يمكنك تغييرها من هنا، وستطبق على الإجمالي والفاتورة تلقائياً.</div>
 
-      <div style="margin-top:14px;padding:14px;border:1px solid rgba(255,255,255,.14);border-radius:16px;background:rgba(255,255,255,.04)">
-        <div style="font-weight:1000;font-size:18px;margin-bottom:8px">الضرائب / Tax</div>
-        <label class="lbl" style="margin-top:0">Tax (%)</label>
-        <input class="inp" id="taxRate" type="number" step="0.01" min="0" placeholder="مثال: 13" />
-        <div class="hint" style="opacity:.9;margin-top:6px">اكتب النسبة بدون علامة % مثل 13. ستظهر تلقائياً عند الزبون في صفحة الشراء.</div>
-      </div>
+      <div id="taxSection" style="margin-top:14px;padding:14px;border:1px solid rgba(255,255,255,.14);border-radius:16px;background:rgba(255,255,255,.04)"><div style="font-weight:1000;font-size:18px;margin-bottom:8px">Tax / الضريبة</div><label class="lbl" style="margin-top:0">Tax (%)</label>
+      <input class="inp" id="taxRate" type="number" step="0.01" min="0" placeholder="مثال: 13" />
+      <div class="hint" style="opacity:.95;margin-top:6px">اكتب النسبة بدون علامة % مثل 13 وسيتم تطبيقها تلقائياً على صفحة الشراء.</div></div>
 
       <label class="lbl">كلمة سر الأدمن</label>
       <input class="inp" id="adminPassword" inputmode="numeric" placeholder="افتراضي: 2323" />
@@ -103,24 +100,28 @@
  
     if(!adminIsOk()) nav("login.html");
 
-    const s = getSettings();
-    document.getElementById("storeName").value = s.storeName || "";
-    document.getElementById("heroImage").value = s.heroImage || "";
-    // show preview if data-url
-    if((s.heroImage||"").startsWith("data:image")){
-      if(heroPrev){ heroPrev.src = s.heroImage; }
-      if(heroPrevWrap) heroPrevWrap.style.display="block";
+    function fillForm(s){
+      document.getElementById("storeName").value = s.storeName || "";
+      document.getElementById("heroImage").value = s.heroImage || "";
+      if((s.heroImage||"").startsWith("data:image")){
+        if(heroPrev){ heroPrev.src = s.heroImage; }
+        if(heroPrevWrap) heroPrevWrap.style.display="block";
+      }
+      document.getElementById("whatsapp").value = String(s.whatsappPhone||"").replace(/\D/g,"");
+      document.getElementById("deliveryFee").value = Number(s.deliveryFee ?? 5);
+      const taxPercent = Number(s.taxRate ?? s.tax_rate ?? 0.13) * 100;
+      document.getElementById("taxRate").value = Number.isFinite(taxPercent) ? taxPercent : 13;
+      document.getElementById("pageBg").value = s.theme?.pageBg || "#0b0f1a";
+      document.getElementById("overlay").value = s.theme?.cardOverlay || "rgba(0,0,0,.25)";
+      document.getElementById("g1").value = (s.theme?.gradientText||[])[0] || "#ff3d8d";
+      document.getElementById("g2").value = (s.theme?.gradientText||[])[1] || "#ffb703";
+      document.getElementById("g3").value = (s.theme?.gradientText||[])[2] || "#00d4ff";
+      document.getElementById("fs").value = String(s.theme?.fontSizeBase ?? 16);
     }
-    const heroImgLoaded = true;
-    document.getElementById("whatsapp").value = String(s.whatsappPhone||"").replace(/\D/g,"");
-    document.getElementById("deliveryFee").value = Number(s.deliveryFee ?? 5);
-    document.getElementById("taxRate").value = Number((s.taxRate ?? 0.13) * 100);
-    document.getElementById("pageBg").value = s.theme?.pageBg || "#0b0f1a";
-    document.getElementById("overlay").value = s.theme?.cardOverlay || "rgba(0,0,0,.25)";
-    document.getElementById("g1").value = (s.theme?.gradientText||[])[0] || "#ff3d8d";
-    document.getElementById("g2").value = (s.theme?.gradientText||[])[1] || "#ffb703";
-    document.getElementById("g3").value = (s.theme?.gradientText||[])[2] || "#00d4ff";
-    document.getElementById("fs").value = String(s.theme?.fontSizeBase ?? 16);
+
+    let s = getSettings();
+    fillForm(s);
+    pbSyncSettingsFromSupabase().then((remote)=>{ s = remote || getSettings(); fillForm(s); }).catch(()=>{});
 
     document.getElementById("save").onclick = async ()=>{
       const next = JSON.parse(JSON.stringify(s));
@@ -137,7 +138,6 @@
       next.deliveryFee = Number.isFinite(df) ? df : 5;
       const taxInput = Number(document.getElementById("taxRate").value);
       next.taxRate = Number.isFinite(taxInput) ? (taxInput / 100) : 0.13;
-      next.tax_rate = next.taxRate;
       const ap = document.getElementById("adminPassword").value.trim();
       next.adminPassword = ap || "2323";
       const ak = (document.getElementById("adminKey")?.value || "").trim();
@@ -158,9 +158,7 @@ next.theme.radius = Number.isFinite(rr) ? rr : 18;
 
       setSettings(next);
       applyTheme();
-      alert("تم الحفظ ✅
-
-إذا لم يظهر التاكس عند الزبون اعمل Ctrl + F5 ثم جرّب طلب جديد.");
+      alert("تم الحفظ ✅");
     };
 
     applyTheme();
