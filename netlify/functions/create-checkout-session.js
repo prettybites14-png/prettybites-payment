@@ -2,26 +2,16 @@ const Stripe = require("stripe");
 
 function getStripeSecret() {
   const raw = String(process.env.STRIPE_SECRET_KEY || "").trim();
-  if (!raw) {
-    throw new Error("Missing STRIPE_SECRET_KEY in Netlify Environment Variables.");
-  }
-  if (raw.startsWith("pk_")) {
-    throw new Error("STRIPE_SECRET_KEY is wrong. You entered a publishable key (pk_) instead of a secret key (sk_).");
-  }
-  if (!raw.startsWith("sk_")) {
-    throw new Error("STRIPE_SECRET_KEY must start with sk_.");
-  }
+  if (!raw) throw new Error("Missing STRIPE_SECRET_KEY in Netlify Environment Variables.");
+  if (raw.startsWith("pk_")) throw new Error("STRIPE_SECRET_KEY is wrong. You entered a publishable key (pk_) instead of a secret key (sk_).");
+  if (!raw.startsWith("sk_")) throw new Error("STRIPE_SECRET_KEY must start with sk_.");
   return raw;
 }
 
 function getSiteUrl() {
   const siteUrl = String(process.env.SITE_URL || "").trim().replace(/\/$/, "");
-  if (!siteUrl) {
-    throw new Error("Missing SITE_URL in Netlify Environment Variables.");
-  }
-  if (!/^https?:\/\//i.test(siteUrl)) {
-    throw new Error("SITE_URL must start with http:// or https://");
-  }
+  if (!siteUrl) throw new Error("Missing SITE_URL in Netlify Environment Variables.");
+  if (!/^https?:\/\//i.test(siteUrl)) throw new Error("SITE_URL must start with http:// or https://");
   return siteUrl;
 }
 
@@ -47,41 +37,21 @@ exports.handler = async (event) => {
       day: String(body.day || ""),
       time: String(body.time || body.deliveryTime || ""),
       notes: String(body.notes || "").slice(0, 450),
-      subtotal: String(body.subtotal || 0),
-      delivery_fee: String(body.deliveryFee || 0),
-      tax_rate: String(body.taxRate || 0.13),
+      total: String(body.total || 0),
       tax_amount: String(body.taxAmount || 0),
-      total: String(body.total || 0)
+      tax_rate: String(body.taxRate || 0)
     };
 
     if (mode === "weekly") {
       const title = String(body.planTitle || "Weekly Meal Plan");
       const packagePrice = Number(body.packagePrice || 0);
       const deliveryFee = Number(body.deliveryFee || 0);
+      const taxAmount = Number(body.taxAmount || 0);
+      if (packagePrice <= 0) throw new Error("Weekly package price is missing.");
 
-      if (packagePrice <= 0) {
-        throw new Error("Weekly package price is missing.");
-      }
-
-      line_items.push({
-        price_data: {
-          currency,
-          product_data: { name: title },
-          unit_amount: Math.round(packagePrice * 100)
-        },
-        quantity: 1
-      });
-
-      if (deliveryFee > 0) {
-        line_items.push({
-          price_data: {
-            currency,
-            product_data: { name: "Delivery Fee" },
-            unit_amount: Math.round(deliveryFee * 100)
-          },
-          quantity: 1
-        });
-      }
+      line_items.push({ price_data: { currency, product_data: { name: title }, unit_amount: Math.round(packagePrice * 100) }, quantity: 1 });
+      if (deliveryFee > 0) line_items.push({ price_data: { currency, product_data: { name: "Delivery Fee" }, unit_amount: Math.round(deliveryFee * 100) }, quantity: 1 });
+      if (taxAmount > 0) line_items.push({ price_data: { currency, product_data: { name: `Tax (${Math.round(Number(body.taxRate || 0) * 10000) / 100 || 13}%)` }, unit_amount: Math.round(taxAmount * 100) }, quantity: 1 });
 
       metadata.plan_title = title;
       metadata.package_price = String(packagePrice || 0);
@@ -90,62 +60,32 @@ exports.handler = async (event) => {
       metadata.items_json = JSON.stringify(body.items || []).slice(0, 450);
     } else {
       const items = Array.isArray(body.items) ? body.items : [];
+      const deliveryFee = Number(body.deliveryFee || 0);
+      const taxAmount = Number(body.taxAmount || 0);
       if (!items.length) throw new Error("Cart is empty.");
 
       for (const item of items) {
         const unitAmount = Math.round(Number(item.price || 0) * 100);
         if (unitAmount <= 0) continue;
         line_items.push({
-          price_data: {
-            currency,
-            product_data: { name: String(item.name || "Item").slice(0, 120) },
-            unit_amount: unitAmount
-          },
+          price_data: { currency, product_data: { name: String(item.name || "Item").slice(0, 120) }, unit_amount: unitAmount },
           quantity: Math.max(1, Number(item.qty || 1))
         });
       }
-
-      if (!line_items.length) {
-        throw new Error("Cart items are invalid.");
-      }
-
-      const deliveryFee = Number(body.deliveryFee || 0);
-      if (deliveryFee > 0) {
-        line_items.push({
-          price_data: {
-            currency,
-            product_data: { name: "Delivery Fee" },
-            unit_amount: Math.round(deliveryFee * 100)
-          },
-          quantity: 1
-        });
-      }
-      const taxAmount = Number(body.taxAmount || 0);
-      if (taxAmount > 0) {
-        line_items.push({
-          price_data: {
-            currency,
-            product_data: { name: "HST (13%)" },
-            unit_amount: Math.round(taxAmount * 100)
-          },
-          quantity: 1
-        });
-      }
+      if (!line_items.length) throw new Error("Cart items are invalid.");
+      if (deliveryFee > 0) line_items.push({ price_data: { currency, product_data: { name: "Delivery Fee" }, unit_amount: Math.round(deliveryFee * 100) }, quantity: 1 });
+      if (taxAmount > 0) line_items.push({ price_data: { currency, product_data: { name: `Tax (${Math.round(Number(body.taxRate || 0) * 10000) / 100 || 13}%)` }, unit_amount: Math.round(taxAmount * 100) }, quantity: 1 });
       metadata.delivery_fee = String(deliveryFee || 0);
-      metadata.tax_amount = String(taxAmount || 0);
       metadata.items_json = JSON.stringify(items).slice(0, 450);
     }
 
     const session = await stripe.checkout.sessions.create({
-      
       mode: "payment",
       line_items,
       success_url: `${siteUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/${mode === "weekly" ? "weekly-meals.html" : "cancel.html"}`,
       metadata,
-      billing_address_collection: "required",
-      phone_number_collection: { enabled: false },
-      shipping_address_collection: body.deliveryType === "delivery" ? { allowed_countries: ["CA"] } : undefined,
+      payment_method_types: ["card"],
       allow_promotion_codes: false
     });
 

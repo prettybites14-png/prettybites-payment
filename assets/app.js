@@ -134,8 +134,19 @@ function ensureData(){
   if(!o) save(LS.orders, DEFAULTS.orders);
 }
 
-function getSettings(){ ensureData(); return load(LS.settings, DEFAULTS.settings); }
-function setSettings(next){ save(LS.settings, next); pbNotifyCatalogChanged("settings"); pbPushSettingsToSupabase(next).catch(console.warn); }
+function normalizeSettings(obj){
+  const s = Object.assign({}, DEFAULTS.settings, obj || {});
+  if (typeof s.taxRate !== "number") {
+    const alias = Number(s.tax_rate);
+    if (Number.isFinite(alias)) s.taxRate = alias;
+  }
+  if (!Number.isFinite(Number(s.taxRate))) s.taxRate = 0.13;
+  s.tax_rate = Number(s.taxRate);
+  s.theme = Object.assign({}, DEFAULTS.settings.theme, s.theme || {});
+  return s;
+}
+function getSettings(){ ensureData(); return normalizeSettings(load(LS.settings, DEFAULTS.settings)); }
+function setSettings(next){ const normalized = normalizeSettings(next); save(LS.settings, normalized); pbNotifyCatalogChanged("settings"); pbPushSettingsToSupabase(normalized).catch(console.warn); }
 
 function getCards(){ ensureData(); return load(LS.cards, DEFAULTS.cards); }
 function setCards(next){ save(LS.cards, next); pbNotifyCatalogChanged("cards"); pbPushCardsToSupabase(next).catch(console.warn); }
@@ -440,8 +451,8 @@ async function pbPushSettingsToSupabase(settings){
     admin_password: settings.adminPassword || "",
     admin_key: window.PB_ADMIN_KEY || "PB-ADMIN-2323",
     hero_image: settings.heroImage || "",
-    delivery_fee: Number(settings.deliveryFee ?? 5),
-    tax_rate: Number(settings.taxRate ?? 0.13),
+    delivery_fee: Number(settings.deliveryFee || 0),
+    tax_rate: Number(settings.taxRate || 0),
     theme: settings.theme || {}
   };
   return await pbRestUpsert(detected.table, [row]);
@@ -540,8 +551,8 @@ Items:
 ${products}
 
 Subtotal: ${money(order.subtotal)}
-Delivery: ${money(order.deliveryFee)}
 Tax: ${money(order.taxAmount || 0)}
+Delivery: ${money(order.deliveryFee)}
 Total: ${money(order.total)}
 
 Notes:
@@ -749,7 +760,10 @@ function pbWeeklyGrandTotal(type, cfg){
   cfg = cfg || getWeeklyConfig();
   const base = Number(cfg.packagePrice || 0);
   const delivery = type === 'delivery' ? pbWeeklyDeliveryTotal(cfg) : 0;
-  return base + delivery;
+  const s = getSettings();
+  const taxRate = Number(s.taxRate ?? 0.13);
+  const tax = (base + delivery) * taxRate;
+  return base + delivery + tax;
 }
 async function pbWeeklyOrdersSelect(){
   const q = '?select=id,status,full_name,phone,fulfillment_type,preferred_time,weekly_price,delivery_total,customer_name,customer_phone,delivery_type,address,delivery_time,notes,total,package_price,delivery_fee_per_day,delivery_days,created_at,data&order=created_at.desc';

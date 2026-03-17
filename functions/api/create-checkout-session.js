@@ -1,4 +1,4 @@
-// PB TAX VERSION MARKER: v3-cloudflare-manual-tax-13
+// PB TAX VERSION MARKER: v3-cloudflare-manual-tax
 const Stripe = require("stripe");
 
 function getStripeSecret() {
@@ -34,11 +34,9 @@ async function handleRequest(request, env) {
       day: String(body.day || ""),
       time: String(body.time || body.deliveryTime || ""),
       notes: String(body.notes || "").slice(0, 450),
-      subtotal: String(body.subtotal || 0),
-      delivery_fee: String(body.deliveryFee || 0),
-      tax_rate: String(body.taxRate || 0.13),
+      total: String(body.total || 0),
       tax_amount: String(body.taxAmount || 0),
-      total: String(body.total || 0)
+      tax_rate: String(body.taxRate || 0)
     };
 
     if (mode === "weekly") {
@@ -74,7 +72,7 @@ async function handleRequest(request, env) {
           quantity: 1,
           price_data: {
             currency,
-            product_data: { name: "HST (13%)" },
+            product_data: { name: `Tax (${Math.round(Number(body.taxRate || 0) * 10000) / 100 || 13}%)` },
             unit_amount: Math.round(taxAmount * 100)
           }
         });
@@ -83,13 +81,11 @@ async function handleRequest(request, env) {
       metadata.plan_title = title;
       metadata.package_price = String(packagePrice);
       metadata.delivery_fee = String(deliveryFee);
-      metadata.tax_amount = String(taxAmount);
-      metadata.delivery_days = String(body.deliveryDays || 5);
-      metadata.items_json = JSON.stringify(body.items || []).slice(0, 450);
     } else {
       const items = Array.isArray(body.items) ? body.items : [];
+      const deliveryFee = Number(body.deliveryFee || 0);
+      const taxAmount = Number(body.taxAmount || 0);
       if (!items.length) throw new Error("Cart is empty.");
-
       line_items = items.map((item) => ({
         quantity: Math.max(1, Number(item.qty || 1)),
         price_data: {
@@ -98,8 +94,6 @@ async function handleRequest(request, env) {
           unit_amount: Math.round(Number(item.price || 0) * 100)
         }
       }));
-
-      const deliveryFee = Number(body.deliveryFee || 0);
       if (deliveryFee > 0) {
         line_items.push({
           quantity: 1,
@@ -110,21 +104,17 @@ async function handleRequest(request, env) {
           }
         });
       }
-
-      const taxAmount = Number(body.taxAmount || 0);
       if (taxAmount > 0) {
         line_items.push({
           quantity: 1,
           price_data: {
             currency,
-            product_data: { name: "HST (13%)" },
+            product_data: { name: `Tax (${Math.round(Number(body.taxRate || 0) * 10000) / 100 || 13}%)` },
             unit_amount: Math.round(taxAmount * 100)
           }
         });
       }
-
       metadata.delivery_fee = String(deliveryFee || 0);
-      metadata.tax_amount = String(taxAmount || 0);
       metadata.items_json = JSON.stringify(items).slice(0, 450);
     }
 
