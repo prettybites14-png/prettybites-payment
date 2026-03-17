@@ -40,19 +40,10 @@
     }
 
     async function verifyPaidSession(sessionId){
-      const endpoints = [`/api/verify-session?session_id=${encodeURIComponent(sessionId)}`, `/.netlify/functions/verify-session?session_id=${encodeURIComponent(sessionId)}`];
-      let lastError = 'Payment verification failed.';
-      for(const endpoint of endpoints){
-        try{
-          const res = await fetch(endpoint);
-          const data = await res.json().catch(()=>({}));
-          if(res.ok && data && data.paid) return data;
-          lastError = data.error || lastError;
-        }catch(err){
-          lastError = (err && err.message) || lastError;
-        }
-      }
-      throw new Error(lastError);
+      const res = await fetch(`/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
+      const data = await res.json().catch(()=>({}));
+      if(res.ok && data && data.paid) return data;
+      throw new Error(data.error || 'Payment verification failed.');
     }
 
     async function insertWeeklyOrderDirect(order){

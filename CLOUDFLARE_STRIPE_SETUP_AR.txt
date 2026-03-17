@@ -1,0 +1,16 @@
+Cloudflare Pages Stripe Setup
+
+1) Cloudflare > Workers & Pages > مشروعك > Settings > Variables and Secrets
+2) أضف Secret باسم:
+   STRIPE_SECRET_KEY
+   والقيمة: sk_live_... أو sk_test_...
+3) أضف Variable اختياري باسم:
+   PUBLIC_SITE_URL
+   والقيمة: https://prettybites.ca
+4) اعمل Redeploy بعد إضافة المتغيرات.
+5) للتأكد افتح:
+   /api/debug-stripe-env
+6) صفحة الدفع الآن تستخدم:
+   /api/create-checkout-session
+   وصفحة النجاح تستخدم:
+   /api/verify-session

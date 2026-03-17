@@ -1,3 +1,4 @@
+<!-- force deploy clean cloudflare tax -->
 <!doctype html>
 <html lang="en" dir="ltr">
 <head>
@@ -120,7 +121,7 @@
       const sub = cartSubtotal();
       const s = getSettings();
       const deliveryFee = Number(s.deliveryFee ?? 3);
-      const taxRate = Number(s.taxRate ?? 0.13);
+      const taxRate = Number(s.taxRate ?? s.tax_rate ?? 0.13);
       const fee = (deliveryType === "delivery") ? deliveryFee : 0;
       const taxableBase = sub + fee;
       const tax = taxableBase * taxRate;
@@ -195,7 +196,7 @@
         }
         throw new Error('Stripe checkout URL is missing.');
       }catch(err){
-        paymentError.textContent = (err.message || 'Payment could not start.') + ' If you still see an error, check /api/debug-stripe-env';
+        paymentError.textContent = (err.message || 'Payment could not start.') + ' Check /api/debug-stripe-env after adding STRIPE_SECRET_KEY in Cloudflare if payment does not start';
         submitBtn.disabled = false;
         submitBtn.innerHTML = 'Pay Now <span id="payAmount">' + document.getElementById('tot').textContent + '</span>';
       }
