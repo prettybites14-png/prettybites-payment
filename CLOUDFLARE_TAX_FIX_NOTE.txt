@@ -1,0 +1,1 @@
+This package adds a Cloudflare Pages function at functions/api/create-checkout-session.js with Stripe automatic tax, required billing address collection, and CA shipping address collection.
