@@ -1,3 +1,4 @@
+const total = subtotal + delivery + tax;
 document.getElementById('taxAmount').textContent = `$${tax.toFixed(2)}`;
 const taxRate = Number(settings?.tax_rate || settings?.taxRate || 13);
 const tax = subtotal * (taxRate / 100);
