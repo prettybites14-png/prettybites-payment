@@ -1,4 +1,4 @@
-<!-- force deploy clean cloudflare tax -->
+<!-- Pretty Bites clean Stripe/Cloudflare build v3 -->
 <!doctype html>
 <html lang="en" dir="ltr">
 <head>
@@ -196,7 +196,7 @@
         }
         throw new Error('Stripe checkout URL is missing.');
       }catch(err){
-        paymentError.textContent = (err.message || 'Payment could not start.') + ' Check /api/debug-stripe-env after adding STRIPE_SECRET_KEY in Cloudflare if payment does not start';
+        paymentError.textContent = (err.message || 'Payment could not start.') + ' Check /api/debug-stripe-env after adding STRIPE_SECRET_KEY in Cloudflare and redeploy the site.';
         submitBtn.disabled = false;
         submitBtn.innerHTML = 'Pay Now <span id="payAmount">' + document.getElementById('tot').textContent + '</span>';
       }

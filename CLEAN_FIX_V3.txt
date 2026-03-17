@@ -1,0 +1,5 @@
+Pretty Bites clean Cloudflare Stripe build v3
+- Removed Netlify fallback from weekly checkout
+- Added Stripe automatic tax to checkout sessions
+- Removed manual weekly tax line item to avoid double tax
+- Updated API imports to explicit .js extensions

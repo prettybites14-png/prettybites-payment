@@ -1,17 +1,13 @@
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' }
-  });
-}
+
+import { json, envValue } from './_common.js';
 
 export async function onRequestGet(context) {
-  const secret = String(context.env?.STRIPE_SECRET_KEY || '').trim();
-  const site = String(context.env?.SITE_URL || '').trim();
+  const hasSecret = !!envValue(context, 'STRIPE_SECRET_KEY');
+  const hasPublic = !!envValue(context, 'PUBLIC_SITE_URL');
   return json({
-    ok: !!secret && secret.startsWith('sk_'),
-    hasSecret: !!secret,
-    secretPrefix: secret ? secret.slice(0, 3) + '_' : '',
-    siteUrl: site || new URL(context.request.url).origin
+    ok: hasSecret,
+    stripeSecretConfigured: hasSecret,
+    publicSiteUrlConfigured: hasPublic,
+    message: hasSecret ? 'Stripe secret key is configured.' : 'Add STRIPE_SECRET_KEY in Cloudflare Pages > Settings > Variables and redeploy.'
   });
 }
