@@ -1,3 +1,4 @@
+// PB TAX VERSION MARKER: v2-cloudflare-tax-address
 const Stripe = require("stripe");
 
 function getStripeSecret() {
