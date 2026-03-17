@@ -60,7 +60,7 @@
         <div class="orderTotalsBox">
           <div class="kv"><span>Subtotal</span><b id="sub">$0.00</b></div>
           <div class="kv"><span>Delivery</span><b id="del">$0.00</b></div>
-          <div class="kv"><span>Tax (13%)</span><b id="tax">$0.00</b></div>
+          <div class="kv"><span id="taxLabel">Tax (13%)</span><b id="tax">$0.00</b></div>
           <div class="kv totalRow"><span>Total</span><b id="tot">$0.00</b></div>
         </div>
 
@@ -94,6 +94,12 @@
     applyTheme();
     updateCartBadge();
 
+    async function loadRemoteSettings(){
+      try{ await pbSyncSettingsFromSupabase(); }catch(e){ console.warn(e); }
+      recalc();
+    loadRemoteSettings();
+    }
+
     let deliveryType = "pickup";
     const addrWrap = document.getElementById("addrWrap");
     const submitBtn = document.getElementById('submit');
@@ -125,8 +131,10 @@
       const taxableAmount = sub + fee;
       const tax = Number((taxableAmount * taxRate).toFixed(2));
       const total = Number((taxableAmount + tax).toFixed(2));
+      const taxPercent = Number((taxRate * 100).toFixed(2));
       document.getElementById("sub").textContent = money(sub);
       document.getElementById("del").textContent = money(fee);
+      document.getElementById("taxLabel").textContent = `Tax (${taxPercent}%)`;
       document.getElementById("tax").textContent = money(tax);
       document.getElementById("tot").textContent = money(total);
       document.getElementById("payAmount").textContent = money(total);
