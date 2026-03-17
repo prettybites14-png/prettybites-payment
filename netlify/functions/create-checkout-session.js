@@ -121,6 +121,7 @@ exports.handler = async (event) => {
     }
 
     const session = await stripe.checkout.sessions.create({
+  automatic_tax: { enabled: true },
       mode: "payment",
       line_items,
       success_url: `${siteUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
