@@ -1,5 +1,5 @@
 
-import { json, stripeGet } from './_common.js';
+import { json, stripeGet } from './_common';
 
 export async function onRequestGet(context) {
   try {

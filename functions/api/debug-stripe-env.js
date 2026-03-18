@@ -1,5 +1,5 @@
 
-import { json, envValue } from './_common.js';
+import { json, envValue } from './_common';
 
 export async function onRequestGet(context) {
   const hasSecret = !!envValue(context, 'STRIPE_SECRET_KEY');

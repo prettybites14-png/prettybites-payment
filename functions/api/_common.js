@@ -96,6 +96,7 @@ function buildWeeklyLineItems(payload) {
   const title = shortText(payload.planTitle || 'Weekly Meal Plan', 80);
   const packagePrice = moneyToCents(payload.packagePrice || 0);
   const deliveryFee = moneyToCents(payload.deliveryFee || 0);
+  const taxAmount = moneyToCents(payload.taxAmount || 0);
   const lineItems = [];
   if (packagePrice) {
     lineItems.push({
@@ -113,6 +114,16 @@ function buildWeeklyLineItems(payload) {
         currency: 'cad',
         product_data: { name: 'Delivery' },
         unit_amount: deliveryFee,
+      },
+      quantity: 1,
+    });
+  }
+  if (taxAmount) {
+    lineItems.push({
+      price_data: {
+        currency: 'cad',
+        product_data: { name: `Tax (${(parseNum(payload.taxRate, 0.13) * 100).toFixed(2).replace(/\.00$/, '')}%)` },
+        unit_amount: taxAmount,
       },
       quantity: 1,
     });
